@@ -1,4 +1,7 @@
-# telegram-client
+# telegram-grep
+
+[![CI](https://github.com/ilya-kudravets/telegram-grep/actions/workflows/ci.yml/badge.svg)](https://github.com/ilya-kudravets/telegram-grep/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/ilya-kudravets/telegram-grep/actions/workflows/codeql.yml/badge.svg)](https://github.com/ilya-kudravets/telegram-grep/actions/workflows/codeql.yml)
 
 Telegram TUI client: local cache of all chats, regex search, delete messages across all devices.
 
