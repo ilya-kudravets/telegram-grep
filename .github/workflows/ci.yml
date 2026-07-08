@@ -28,5 +28,6 @@ jobs:
         with:
           bun-version: latest
       - run: bun install --frozen-lockfile
-      # fails the job on known-vulnerable dependencies
-      - run: bun audit
+      # fails the job on known-vulnerable production dependencies
+      # (dev-only tooling vulns are handled by Dependabot bumps, not a release gate)
+      - run: bun audit --prod
