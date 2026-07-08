@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "skills": {
+    "implementing-jsc-classes-cpp": {
+      "source": "oven-sh/bun",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/implementing-jsc-classes-cpp/SKILL.md",
+      "computedHash": "d9db0cddb5b312db8eeb1a52ff9cd33472dfb85d5e4dfcf14db159e2c397d95e"
+    },
+    "implementing-jsc-classes-rust": {
+      "source": "oven-sh/bun",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/implementing-jsc-classes-rust/SKILL.md",
+      "computedHash": "cdac4908302dccdb8df52e43d10ff6adcdd692d8f5d2a77b9b92f9d226af7b46"
+    },
+    "javascriptcore-garbage-collector": {
+      "source": "oven-sh/bun",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/javascriptcore-garbage-collector/SKILL.md",
+      "computedHash": "05f5df12c5265027b3185fbc220544ed5f0c3c031ca7c0953160c41a53cfb730"
+    },
+    "opentui": {
+      "source": "anomalyco/opentui",
+      "sourceType": "github",
+      "skillPath": "packages/web/src/content/SKILL.md",
+      "computedHash": "d658b7d3539484430b3c5f145d656e0071d2aadb544e29859635177fd9ddc909"
+    },
+    "rust-system-calls": {
+      "source": "oven-sh/bun",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/rust-system-calls/SKILL.md",
+      "computedHash": "a0f61b64ca3fec58707ae6774090a012781ba2151ea9414fed38fb05238ba0eb"
+    },
+    "slowest-tests": {
+      "source": "oven-sh/bun",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/slowest-tests/SKILL.md",
+      "computedHash": "074fb8aece59f616248fa7b686949716412e7caab3697b5782d69b34b93c5866"
+    },
+    "using-mtcute": {
+      "source": "mtcute/mtcute",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/using-mtcute/SKILL.md",
+      "computedHash": "0e13f48e9bb578606cc141812b6b32132d9d896e04dbb3b71d2a8d380782cfb1"
+    },
+    "writing-bundler-tests": {
+      "source": "oven-sh/bun",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/writing-bundler-tests/SKILL.md",
+      "computedHash": "9dd51369f60efb8ade269756a35d7de44a6828436196056367d8a501b2fd74a8"
+    },
+    "writing-dev-server-tests": {
+      "source": "oven-sh/bun",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/writing-dev-server-tests/SKILL.md",
+      "computedHash": "acf66210db9ec952474f0cbed9e6b6be911e5e79674f1f6d19a083a5fa4a0ba3"
+    }
+  }
+}
