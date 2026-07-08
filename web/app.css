@@ -5,7 +5,10 @@
 body {
   background: #111418;
   color: #e6e6e6;
-  font: 15px/1.4 -apple-system, system-ui, sans-serif;
+  font:
+    15px / 1.4 -apple-system,
+    system-ui,
+    sans-serif;
 }
 .app {
   max-width: 720px;
@@ -31,7 +34,7 @@ header {
   padding: 0 8px;
   font-size: 16px;
 }
-input[type='search'] {
+input[type="search"] {
   width: 100%;
   padding: 12px 14px;
   font-size: 16px; /* iOS: <16px zooms in on focus */
@@ -41,7 +44,7 @@ input[type='search'] {
   color: inherit;
   outline: none;
 }
-input[type='search']:focus {
+input[type="search"]:focus {
   border-color: #2aabee;
 }
 .patterns {

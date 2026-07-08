@@ -4,7 +4,7 @@ import { createClient, login, onFlood, t } from './client'
 import { openCache } from './db'
 import { deleteEverywhere } from './deleter'
 import { compilePattern, loadPatterns, searchCache } from './search'
-import { attachRealtime, syncAll, type SyncProgress } from './sync'
+import { attachRealtime, type SyncProgress, syncAll } from './sync'
 import { guardRoutes, loadOrCreateToken } from './webauth'
 
 const tg = createClient()
@@ -47,7 +47,11 @@ const serveOpts = {
         },
         del: (targets: Parameters<typeof deleteEverywhere>[2]) =>
           deleteEverywhere(tg, cache, targets),
-        status: () => ({ ...status, cached: cache.count(), patterns: loadPatterns('patterns.txt') }),
+        status: () => ({
+          ...status,
+          cached: cache.count(),
+          patterns: loadPatterns('patterns.txt'),
+        }),
       }),
     ),
   },

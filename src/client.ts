@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs'
-import { TelegramClient, networkMiddlewares } from '@mtcute/bun'
+import { networkMiddlewares, TelegramClient } from '@mtcute/bun'
 import { detectLangEnv, makeT } from './i18n'
 
 export const lang = detectLangEnv()
@@ -40,7 +40,7 @@ export function createClient() {
 // prompt with '*' echo — phone/code/password must not stay on screen
 export function askHidden(question: string): Promise<string> {
   return new Promise((resolve) => {
-    process.stdout.write(question + ' ')
+    process.stdout.write(`${question} `)
     const stdin = process.stdin
     stdin.setRawMode(true)
     stdin.resume()

@@ -1,9 +1,9 @@
-import { describe, expect, test } from 'bun:test'
 import { Database } from 'bun:sqlite'
+import { describe, expect, test } from 'bun:test'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openCache, type CachedMessage } from '../src/db'
+import { type CachedMessage, openCache } from '../src/db'
 
 const msg = (over: Partial<CachedMessage> = {}): CachedMessage => ({
   chat_id: 1,

@@ -25,7 +25,10 @@ export async function deleteEverywhere(
   const byChat = new Map<number, number[]>()
   for (const t of targets) {
     let ids = byChat.get(t.chat_id)
-    if (!ids) byChat.set(t.chat_id, (ids = []))
+    if (!ids) {
+      ids = []
+      byChat.set(t.chat_id, ids)
+    }
     ids.push(t.id)
   }
 

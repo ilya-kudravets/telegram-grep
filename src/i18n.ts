@@ -1,6 +1,6 @@
 // Tiny shared i18n. Translations live in ./locales/*.ts (one file per language).
 // Shared by the TUI/CLI (Bun) and the web bundle (browser).
-import { type Dict, type Key, en } from './locales/en'
+import { type Dict, en, type Key } from './locales/en'
 import { ru } from './locales/ru'
 
 export type Lang = 'en' | 'ru'

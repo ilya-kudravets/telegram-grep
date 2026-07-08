@@ -1,5 +1,4 @@
-import { watch } from 'node:fs'
-import { readFileSync } from 'node:fs'
+import { readFileSync, watch } from 'node:fs'
 import type { Cache, SearchRow } from './db'
 
 // plain string → case-insensitive; '/pat/flags' → explicit; invalid → null

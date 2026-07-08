@@ -40,7 +40,10 @@ export function openCache(path: string) {
   `)
 
   // migrate DBs created before backfill tracking existed
-  for (const col of ['oldest_id integer not null default 0', 'backfilled integer not null default 0']) {
+  for (const col of [
+    'oldest_id integer not null default 0',
+    'backfilled integer not null default 0',
+  ]) {
     try {
       db.exec(`alter table chats add column ${col}`)
     } catch {
@@ -117,10 +120,10 @@ export function openCache(path: string) {
     deleteMessages(chatId: number, ids: number[]) {
       // Stryker disable next-line ConditionalExpression: guard is a pure optimization — with empty ids the query becomes a harmless `id in ()` that deletes nothing
       if (!ids.length) return
-      db.run(
-        `delete from messages where chat_id = ? and id in (${ids.map(() => '?').join(',')})`,
-        [chatId, ...ids],
-      )
+      db.run(`delete from messages where chat_id = ? and id in (${ids.map(() => '?').join(',')})`, [
+        chatId,
+        ...ids,
+      ])
     },
     // DeleteMessageUpdate gives channelId for channels, null otherwise.
     // Non-channel message ids are unique account-wide, channel ids are per-channel.

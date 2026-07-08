@@ -1,6 +1,7 @@
 # telegram-grep
 
 [![CI](https://github.com/ilya-kudravets/telegram-grep/actions/workflows/ci.yml/badge.svg)](https://github.com/ilya-kudravets/telegram-grep/actions/workflows/ci.yml)
+[![Lint](https://github.com/ilya-kudravets/telegram-grep/actions/workflows/lint.yml/badge.svg)](https://github.com/ilya-kudravets/telegram-grep/actions/workflows/lint.yml)
 [![CodeQL](https://github.com/ilya-kudravets/telegram-grep/actions/workflows/codeql.yml/badge.svg)](https://github.com/ilya-kudravets/telegram-grep/actions/workflows/codeql.yml)
 
 Telegram TUI client: local cache of all chats, regex search, delete messages across all devices.
@@ -26,12 +27,13 @@ Cache and session live in `data/` (not committed).
 
 ## CI & security
 
-GitHub Actions (`.github/workflows/`):
-- **ci.yml** — `bun run typecheck` + `bun test` on every push/PR; a separate `bun audit` job fails the build on vulnerable dependencies.
+GitHub Actions (`.github/workflows/`, deps cached across runs):
+- **ci.yml** — `bun run typecheck` + `bun test` on every push/PR; a separate `bun audit --prod` job fails the build on vulnerable production dependencies.
+- **lint.yml** — Biome lint + format check (`biome ci`, config in `biome.json`).
 - **codeql.yml** — CodeQL SAST (`security-extended`) on push/PR and weekly.
 - **dependabot.yml** — weekly PRs bumping dependencies (npm/`bun.lock`) and the actions themselves.
 
-Locally: `bun run typecheck`, `bun test`, `bun audit`.
+Locally: `bun run typecheck`, `bun run lint` (`bun run format` to autofix), `bun test`, `bun audit`.
 
 ## Language
 

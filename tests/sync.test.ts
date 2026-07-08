@@ -1,14 +1,14 @@
 import { describe, expect, test } from 'bun:test'
-import { openCache, type Cache } from '../src/db'
+import { type Cache, openCache } from '../src/db'
 import {
   attachRealtime,
   floodWaitSeconds,
+  type MsgLike,
+  type SyncClient,
   sleep,
   syncAll,
   syncChat,
   toCached,
-  type MsgLike,
-  type SyncClient,
 } from '../src/sync'
 
 const msg = (id: number, text: string, chatId = 1): MsgLike => ({
@@ -176,7 +176,10 @@ describe('syncAll', () => {
     const p = await syncAll(tg, cache)
     expect(p.chatsDone).toBe(2) // both counted as processed
     expect(p.errors).toHaveLength(1)
-    expect(p.errors[0]).toMatchObject({ chatId: 1, error: expect.stringContaining('PEER_ID_INVALID') })
+    expect(p.errors[0]).toMatchObject({
+      chatId: 1,
+      error: expect.stringContaining('PEER_ID_INVALID'),
+    })
     expect(cache.count()).toBe(1) // chat 2 still synced
     expect(cache.lastMsgId(2)).toBe(9)
   })
@@ -300,9 +303,14 @@ describe('attachRealtime', () => {
       },
     }
     // tg is unused by the fake factory; cast a dummy
-    attachRealtime({} as never, cache, () => {
-      changes++
-    }, () => dp)
+    attachRealtime(
+      {} as never,
+      cache,
+      () => {
+        changes++
+      },
+      () => dp,
+    )
     return { h, changes: () => changes }
   }
 
