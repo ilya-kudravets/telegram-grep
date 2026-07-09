@@ -1,12 +1,16 @@
-# telegram-client
+# telegram-grep
+
+[![CI](https://github.com/ilya-kudravets/telegram-grep/actions/workflows/ci.yml/badge.svg)](https://github.com/ilya-kudravets/telegram-grep/actions/workflows/ci.yml)
+[![Lint](https://github.com/ilya-kudravets/telegram-grep/actions/workflows/lint.yml/badge.svg)](https://github.com/ilya-kudravets/telegram-grep/actions/workflows/lint.yml)
+[![CodeQL](https://github.com/ilya-kudravets/telegram-grep/actions/workflows/codeql.yml/badge.svg)](https://github.com/ilya-kudravets/telegram-grep/actions/workflows/codeql.yml)
 
 Telegram TUI client: local cache of all chats, regex search, delete messages across all devices.
 
 ## Getting started
 
-1. Get `API_ID`/`API_HASH` at https://my.telegram.org → API development tools, put them in `.env`
-2. `bun install`
-3. `bun start` — on first run it asks for phone/code/2FA, then downloads history (incrementally: a restart only fetches what's new)
+1. `bun install`
+2. `bun start` — if `.env` is missing (and `API_ID`/`API_HASH` aren't set as real env vars) it creates one from a template and exits; get `API_ID`/`API_HASH` at https://my.telegram.org → API development tools and fill it in
+3. `bun start` again — on first run it asks for phone/code/2FA, then downloads history (incrementally: a restart only fetches what's new)
 
 ## Usage
 
@@ -16,6 +20,25 @@ Telegram TUI client: local cache of all chats, regex search, delete messages acr
 
 Cache and session live in `data/` (not committed).
 
+## CLI mode (for AI agents)
+
+Any subcommand runs headless and prints one line of JSON — no TUI. `tg-client tui`
+(or no args) still launches the interactive client.
+
+- `bun start search "<regex|/pat/flags>" [--limit N]` — search the cache (offline, no auth) → `{count, results}`
+- `bun start stats` — number of cached messages (offline) → `{messages}`
+- `bun start sync` — download/update history (needs auth) → `{chatsDone, messages, errors}`; progress prints to stderr as it runs (one line per update, overwritten in place on a TTY), so stdout stays a single JSON line
+- `bun start delete <chatId>:<msgId> ...` — delete for everyone (needs auth) → `{deleted, errors}`
+- `bun start help` — usage JSON
+- `bun start --version` — `{version}`
+
+`search`/`stats` read `data/cache.db` directly and need no Telegram connection.
+Build a standalone binary with `bun run build` (→ `dist/tg-client`); `git tag v*`
+publishes per-platform binaries via `.github/workflows/release.yml`. See
+[AGENTS.md](AGENTS.md) for the agent setup guide and the
+[`telegram-grep-cli` skill](skills/telegram-grep-cli/SKILL.md) that downloads
+that binary and documents the commands.
+
 ## Testing
 
 - `bun test` — unit tests.
@@ -23,12 +46,13 @@ Cache and session live in `data/` (not committed).
 
 ## CI & security
 
-GitHub Actions (`.github/workflows/`):
-- **ci.yml** — `bun run typecheck` + `bun test` on every push/PR; a separate `bun audit` job fails the build on vulnerable dependencies.
+GitHub Actions (`.github/workflows/`, deps cached across runs):
+- **ci.yml** — `bun run typecheck` + `bun test` on every push/PR; a separate `bun audit --prod` job fails the build on vulnerable production dependencies.
+- **lint.yml** — Biome lint + format check (`biome ci`, config in `biome.json`).
 - **codeql.yml** — CodeQL SAST (`security-extended`) on push/PR and weekly.
 - **dependabot.yml** — weekly PRs bumping dependencies (npm/`bun.lock`) and the actions themselves.
 
-Locally: `bun run typecheck`, `bun test`, `bun audit`.
+Locally: `bun run typecheck`, `bun run lint` (`bun run format` to autofix), `bun test`, `bun audit`.
 
 ## Language
 
@@ -42,4 +66,5 @@ The UI follows the system language (ru/en); translations live in `src/locales/*.
 - To access from a phone: `LAN=1 bun run web` (listens on `0.0.0.0`). The console prints a URL with a token.
 - `/api/*` is token-protected (`Authorization: Bearer`, stored in `data/web-token`). Open the printed `…/?token=…` URL once — the token is saved in the browser, after which you can install it as a PWA (Safari → "Add to Home Screen") with the plain address. Origin is also checked, so third-party sites can't call the API (CSRF).
 - The TUI (`bun start`) and web (`bun run web`) share one Telegram session — run only one at a time.
-- `SESSION_STRING` in `.env` (exported from mtcute) — sign in without phone/code.
+- Auth persists to `data/session` after first login — no need to log in again on restart.
+- For a one-off headless login (no `data/session` yet, no TTY), pass a session string exported from mtcute as a real env var: `SESSION_STRING=... bun start`. An invalid/stale value is ignored (with a warning) rather than needed on every run, so there's no reason to keep it in `.env` once you're logged in.

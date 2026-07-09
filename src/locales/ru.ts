@@ -3,6 +3,8 @@ import type { Dict } from './en'
 // Russian translations. Missing keys fall back to English.
 export const ru: Partial<Dict> = {
   needCreds: 'Заполни API_ID и API_HASH в .env (my.telegram.org → API development tools)',
+  badSessionString:
+    'SESSION_STRING невалиден или не подходит — игнорирую, перехожу к обычному входу',
   askPhone: 'Телефон (+7…):',
   askCode: 'Код из Telegram:',
   askPassword: 'Пароль 2FA:',
@@ -30,6 +32,7 @@ export const ru: Partial<Dict> = {
   deleteErrors: ', ошибок {0}: {1}',
   patternN: 'паттерн {0}/{1}',
   patternsEmpty: 'patterns.txt пуст',
+  appTitle: 'Поиск',
   confirmDeleteWeb: 'Удалить {0} сообщ. на всех устройствах?',
   selectAll: 'все ({0})',
   deleteBtn: 'Удалить ({0})',

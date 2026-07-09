@@ -3,6 +3,8 @@
 export const en = {
   // client / cli
   needCreds: 'Fill API_ID and API_HASH in .env (my.telegram.org → API development tools)',
+  badSessionString:
+    'SESSION_STRING is invalid or unusable — ignoring it, falling back to normal login',
   askPhone: 'Phone (+1…):',
   askCode: 'Code from Telegram:',
   askPassword: '2FA password:',
@@ -34,6 +36,7 @@ export const en = {
   patternN: 'pattern {0}/{1}',
   patternsEmpty: 'patterns.txt is empty',
   // web
+  appTitle: 'Search',
   confirmDeleteWeb: 'Delete {0} message(s) everywhere?',
   selectAll: 'all ({0})',
   deleteBtn: 'Delete ({0})',

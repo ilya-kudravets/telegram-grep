@@ -1,9 +1,11 @@
 {
   "name": "telegram-client",
+  "version": "0.1.0",
   "module": "src/index.ts",
   "type": "module",
   "private": true,
   "devDependencies": {
+    "@biomejs/biome": "^2.5.3",
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/typescript-checker": "^9.6.1",
     "@types/bun": "latest",
@@ -25,6 +27,8 @@
     "test": "bun test",
     "test:mutation": "stryker run",
     "typecheck": "tsc --noEmit",
+    "lint": "biome ci",
+    "format": "biome check --write",
     "build": "bun build src/index.ts --compile --outfile dist/tg-client",
     "web": "bun run src/server.ts"
   }

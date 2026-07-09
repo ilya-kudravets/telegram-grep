@@ -5,12 +5,15 @@
   "checkers": ["typescript"],
   "tsconfigFile": "tsconfig.json",
   "coverageAnalysis": "off",
+  "ignorePatterns": ["spike-rn", "web", "data", "reports", "dist"],
   "mutate": [
     "src/api.ts",
-    "src/db.ts",
-    "src/deleter.ts",
-    "src/search.ts",
-    "src/sync.ts"
+    "src/adapters/bun-sqlite.ts",
+    "src/adapters/patterns-fs.ts",
+    "src/core/cache.ts",
+    "src/core/deleter.ts",
+    "src/core/search.ts",
+    "src/core/sync.ts"
   ],
   "reporters": ["html", "json", "clear-text", "progress"],
   "jsonReporter": { "fileName": "reports/mutation/mutation.json" },

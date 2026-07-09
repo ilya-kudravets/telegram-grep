@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
-import { checkAuth, guardRoutes, loadOrCreateToken } from '../src/webauth'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { checkAuth, guardRoutes, loadOrCreateToken } from '../src/webauth'
 
 const TOKEN = 'secret123'
 const req = (headers: Record<string, string>) => new Request('http://host/api/x', { headers })

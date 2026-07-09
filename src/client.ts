@@ -1,9 +1,21 @@
 import { mkdirSync } from 'node:fs'
-import { TelegramClient, networkMiddlewares } from '@mtcute/bun'
+import { networkMiddlewares, TelegramClient } from '@mtcute/bun'
+import type { SyncProgress } from './core/sync'
 import { detectLangEnv, makeT } from './i18n'
 
 export const lang = detectLangEnv()
 export const t = makeT(lang)
+
+const bar = (done: number, total: number, width = 20) =>
+  '█'.repeat(total ? Math.round((done / total) * width) : 0).padEnd(width, '░')
+
+// shared between the TUI status bar (index.ts) and the headless CLI's sync progress (cli.ts)
+export function formatSyncLine(p: SyncProgress): string {
+  const b = `[${bar(p.chatsDone, p.chatsTotal)}] ${p.chatsDone}/${p.chatsTotal}`
+  return p.floodWait !== undefined
+    ? t('syncFloodLine', b, p.floodWait, p.chatTitle)
+    : t('syncLine', b, p.chatTitle, p.messages)
+}
 
 let floodListener: (seconds: number) => void = () => {}
 export function onFlood(fn: (seconds: number) => void) {
@@ -40,7 +52,7 @@ export function createClient() {
 // prompt with '*' echo — phone/code/password must not stay on screen
 export function askHidden(question: string): Promise<string> {
   return new Promise((resolve) => {
-    process.stdout.write(question + ' ')
+    process.stdout.write(`${question} `)
     const stdin = process.stdin
     stdin.setRawMode(true)
     stdin.resume()
@@ -72,11 +84,22 @@ export function askHidden(question: string): Promise<string> {
 }
 
 // auth happens in the plain terminal, before the TUI/server takes over.
-// SESSION_STRING (если задан в .env) избавляет от интерактивного входа;
-// игнорируется, когда в data/session уже есть авторизация
+// SESSION_STRING (если задан) избавляет от интерактивного входа;
+// игнорируется, когда в data/session уже есть авторизация.
+// tg.start({session}) would throw synchronously on a stale/invalid string
+// (e.g. exported from a different mtcute version) and crash the whole
+// process — import it ourselves first so a bad value just falls back to
+// normal login instead of taking down the app.
 export async function login(tg: TelegramClient) {
+  const session = process.env.SESSION_STRING
+  if (session) {
+    try {
+      await tg.importSession(session)
+    } catch {
+      console.error(t('badSessionString'))
+    }
+  }
   return tg.start({
-    session: process.env.SESSION_STRING || undefined,
     phone: () => askHidden(t('askPhone')),
     code: () => askHidden(t('askCode')),
     password: () => askHidden(t('askPassword')),

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openCache, type CachedMessage } from '../src/db'
+import { type CachedMessage, openCache } from '../src/db'
 import { compilePattern, loadPatterns, searchCache, watchPatterns } from '../src/search'
 
 describe('compilePattern', () => {
@@ -105,5 +105,9 @@ describe('watchPatterns', () => {
       setTimeout(() => writeFileSync(file, 'bar\nbaz\n'), 30)
     })
     expect(await got).toEqual(['bar', 'baz'])
+  })
+
+  test('missing file does not throw, and returns a closeable no-op watcher', () => {
+    expect(() => watchPatterns('/nonexistent/patterns.txt', () => {}).close()).not.toThrow()
   })
 })

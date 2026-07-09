@@ -94,12 +94,14 @@ function App() {
   }
 
   // debounce поиска по мере ввода
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-run only when the query changes
   useEffect(() => {
     const timer = setTimeout(() => runSearch(q), 400)
     return () => clearTimeout(timer)
   }, [q])
 
   // статус + realtime: кэш вырос — повторяем активный поиск
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-run only when the query changes
   useEffect(() => {
     const timer = setInterval(async () => {
       try {
@@ -166,6 +168,7 @@ function App() {
   return (
     <div className="app">
       <header>
+        <h1 className="large-title">{t('appTitle')}</h1>
         <div className="topbar">
           <input
             type="search"
@@ -190,7 +193,7 @@ function App() {
         {status?.patterns?.length ? (
           <div className="patterns">
             {status.patterns.map((p) => (
-              <button key={p} onClick={() => setQ(p)}>
+              <button type="button" key={p} onClick={() => setQ(p)}>
                 {p}
               </button>
             ))}
@@ -214,13 +217,11 @@ function App() {
               <input
                 type="checkbox"
                 checked={marked.size === rows.length && rows.length > 0}
-                onChange={(e) =>
-                  setMarked(e.target.checked ? new Set(rows.map(keyOf)) : new Set())
-                }
+                onChange={(e) => setMarked(e.target.checked ? new Set(rows.map(keyOf)) : new Set())}
               />
               {t('selectAll', rows.length)}
             </label>
-            <button className="danger" disabled={!marked.size || busy} onClick={del}>
+            <button type="button" className="danger" disabled={!marked.size || busy} onClick={del}>
               {busy ? t('deletingBtn') : t('deleteBtn', marked.size)}
             </button>
           </div>

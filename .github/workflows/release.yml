@@ -1,0 +1,61 @@
+name: Release
+
+# Bump "version" in package.json to match, then tag (`git tag v0.1.0 && git push
+# --tags`) to compile the `tg-client` binaries and attach them to a GitHub
+# release. The telegram-grep-cli skill downloads these assets by their
+# `tg-client-<os>-<arch>` names. check-version fails fast if the tag and
+# package.json disagree — bun build --compile bakes package.json's version
+# into the binary (`tg-client --version`), so a mismatch would ship silently.
+#
+# Each target builds on its matching OS/arch runner: @opentui/core (the TUI dep
+# pulled in via src/index.ts) ships per-platform native binaries, so a native
+# `--compile` per runner is reliable where cross-compiling is not.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(grep -m1 '"version"' package.json | sed -E 's/.*"version": *"([^"]+)".*/\1/')
+          if [ "$tag" != "$pkg" ]; then
+            echo "tag v$tag doesn't match package.json version $pkg — bump package.json first" >&2
+            exit 1
+          fi
+
+  build:
+    needs: check-version
+    strategy:
+      matrix:
+        include:
+          - runs-on: macos-14
+            asset: tg-client-darwin-arm64
+          - runs-on: macos-13
+            asset: tg-client-darwin-x64
+          - runs-on: ubuntu-latest
+            asset: tg-client-linux-x64
+          - runs-on: ubuntu-24.04-arm
+            asset: tg-client-linux-arm64
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-${{ runner.arch }}-bun-
+      - run: bun install --frozen-lockfile
+      - run: bun build src/index.ts --compile --outfile ${{ matrix.asset }}
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.asset }}

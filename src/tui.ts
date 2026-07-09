@@ -1,11 +1,11 @@
 import {
   BoxRenderable,
+  createCliRenderer,
   InputRenderable,
   InputRenderableEvents,
+  type KeyEvent,
   SelectRenderable,
   TextRenderable,
-  createCliRenderer,
-  type KeyEvent,
 } from '@opentui/core'
 import type { SearchRow } from './db'
 import type { DeleteResult, DeleteTarget } from './deleter'

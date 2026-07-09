@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { openCache, type CachedMessage } from '../src/db'
-import { deleteEverywhere, type DeleteTarget } from '../src/deleter'
+import { type CachedMessage, openCache } from '../src/db'
+import { type DeleteTarget, deleteEverywhere } from '../src/deleter'
 
 const row = (chat_id: number, id: number): CachedMessage => ({
   chat_id,
