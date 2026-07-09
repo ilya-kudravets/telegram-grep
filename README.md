@@ -8,9 +8,9 @@ Telegram TUI client: local cache of all chats, regex search, delete messages acr
 
 ## Getting started
 
-1. Get `API_ID`/`API_HASH` at https://my.telegram.org → API development tools, put them in `.env`
-2. `bun install`
-3. `bun start` — on first run it asks for phone/code/2FA, then downloads history (incrementally: a restart only fetches what's new)
+1. `bun install`
+2. `bun start` — if `.env` is missing (and `API_ID`/`API_HASH` aren't set as real env vars) it creates one from a template and exits; get `API_ID`/`API_HASH` at https://my.telegram.org → API development tools and fill it in
+3. `bun start` again — on first run it asks for phone/code/2FA, then downloads history (incrementally: a restart only fetches what's new)
 
 ## Usage
 
@@ -65,4 +65,5 @@ The UI follows the system language (ru/en); translations live in `src/locales/*.
 - To access from a phone: `LAN=1 bun run web` (listens on `0.0.0.0`). The console prints a URL with a token.
 - `/api/*` is token-protected (`Authorization: Bearer`, stored in `data/web-token`). Open the printed `…/?token=…` URL once — the token is saved in the browser, after which you can install it as a PWA (Safari → "Add to Home Screen") with the plain address. Origin is also checked, so third-party sites can't call the API (CSRF).
 - The TUI (`bun start`) and web (`bun run web`) share one Telegram session — run only one at a time.
-- `SESSION_STRING` in `.env` (exported from mtcute) — sign in without phone/code.
+- Auth persists to `data/session` after first login — no need to log in again on restart.
+- For a one-off headless login (no `data/session` yet, no TTY), pass a session string exported from mtcute as a real env var: `SESSION_STRING=... bun start`. An invalid/stale value is ignored (with a warning) rather than needed on every run, so there's no reason to keep it in `.env` once you're logged in.

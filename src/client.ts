@@ -72,11 +72,22 @@ export function askHidden(question: string): Promise<string> {
 }
 
 // auth happens in the plain terminal, before the TUI/server takes over.
-// SESSION_STRING (если задан в .env) избавляет от интерактивного входа;
-// игнорируется, когда в data/session уже есть авторизация
+// SESSION_STRING (если задан) избавляет от интерактивного входа;
+// игнорируется, когда в data/session уже есть авторизация.
+// tg.start({session}) would throw synchronously on a stale/invalid string
+// (e.g. exported from a different mtcute version) and crash the whole
+// process — import it ourselves first so a bad value just falls back to
+// normal login instead of taking down the app.
 export async function login(tg: TelegramClient) {
+  const session = process.env.SESSION_STRING
+  if (session) {
+    try {
+      await tg.importSession(session)
+    } catch {
+      console.error(t('badSessionString'))
+    }
+  }
   return tg.start({
-    session: process.env.SESSION_STRING || undefined,
     phone: () => askHidden(t('askPhone')),
     code: () => askHidden(t('askCode')),
     password: () => askHidden(t('askPassword')),
