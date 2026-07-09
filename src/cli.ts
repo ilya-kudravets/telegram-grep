@@ -33,6 +33,26 @@ function takeFlag(args: string[], flag: string): [string | undefined, string[]] 
   return [args[i + 1], args.slice(0, i).concat(args.slice(i + 2))]
 }
 
+// createClient() process.exit()s on missing creds and login() prompts on a TTY —
+// both break the one-line-JSON contract for a headless agent. Check creds up front
+// and turn any login failure (e.g. setRawMode throwing on a non-TTY when no session
+// exists) into a JSON error instead of a bare stack trace + nonzero exit.
+async function authedClient() {
+  if (!process.env.API_ID || !process.env.API_HASH) {
+    out({ error: 'missing API_ID/API_HASH in .env' })
+    return null
+  }
+  const tg = createClient()
+  try {
+    await login(tg)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    out({ error: `login failed: ${msg}; set SESSION_STRING in .env for non-interactive auth` })
+    return null
+  }
+  return tg
+}
+
 export async function runCli(argv: string[]): Promise<number> {
   const [cmd, ...args] = argv
 
@@ -44,9 +64,16 @@ export async function runCli(argv: string[]): Promise<number> {
         out({ error: 'empty or invalid pattern' })
         return 1
       }
-      const limit = limitStr ? Number(limitStr) : 1000
+      let limit = 1000
+      if (limitStr !== undefined) {
+        limit = Number(limitStr)
+        if (!Number.isInteger(limit) || limit <= 0) {
+          out({ error: '--limit must be a positive integer' })
+          return 1
+        }
+      }
       const cache = openDb()
-      const results = searchCache(cache, re, Number.isFinite(limit) ? limit : 1000)
+      const results = searchCache(cache, re, limit)
       cache.close()
       out({ count: results.length, results })
       return 0
@@ -60,8 +87,8 @@ export async function runCli(argv: string[]): Promise<number> {
     }
 
     case 'sync': {
-      const tg = createClient()
-      await login(tg)
+      const tg = await authedClient()
+      if (!tg) return 1
       const cache = openDb()
       const p = await syncAll(tg, cache)
       out({ chatsDone: p.chatsDone, messages: cache.count(), errors: p.errors })
@@ -85,8 +112,8 @@ export async function runCli(argv: string[]): Promise<number> {
         out({ error: 'no targets; usage: delete <chatId>:<msgId> ...' })
         return 1
       }
-      const tg = createClient()
-      await login(tg)
+      const tg = await authedClient()
+      if (!tg) return 1
       const cache = openDb()
       out(await deleteEverywhere(tg, cache, targets))
       cache.close()

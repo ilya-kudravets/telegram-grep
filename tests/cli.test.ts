@@ -40,6 +40,12 @@ test('search rejects an empty/invalid pattern before touching the cache', async 
   expect(out.error).toContain('pattern')
 })
 
+test('search rejects a non-positive --limit', async () => {
+  const { code, out } = await run(['search', 'foo', '--limit', '0'])
+  expect(code).toBe(1)
+  expect(out.error).toContain('--limit')
+})
+
 test('delete rejects a malformed target', async () => {
   const { code, out } = await run(['delete', 'notacolon'])
   expect(code).toBe(1)

@@ -4,7 +4,6 @@ import { openCache } from './db'
 import { deleteEverywhere } from './deleter'
 import { compilePattern, loadPatterns, searchCache, watchPatterns } from './search'
 import { attachRealtime, syncAll } from './sync'
-import { runTui } from './tui'
 
 // Headless CLI for AI agents: any subcommand runs and exits without the TUI.
 // `tui` (or no args) falls through to the interactive client below.
@@ -19,6 +18,8 @@ console.log(t('loggedInUi', self.displayName))
 
 const cache = openCache('data/cache.db')
 
+// dynamic import: ./tui pulls opentui's native binary — keep it off the headless path
+const { runTui } = await import('./tui')
 const tui = await runTui(t, {
   search: (pattern) => {
     const re = compilePattern(pattern)
