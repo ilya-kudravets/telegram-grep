@@ -50,14 +50,17 @@ Without a session, `sync`/`delete` fall back to an interactive phone/code prompt
 ## 3. Commands
 
 Every command prints one line of JSON to stdout and exits non-zero on error.
+`sync` also streams human-readable progress to stderr while it runs — ignore
+(or log) stderr, only stdout is the JSON result.
 
 | Command | Auth | Output |
 |---|---|---|
 | `tg-client search "<pattern>" [--limit N]` | no | `{ "count", "results": [ {chat_id,id,date,sender,text,out,chat_title} ] }` |
 | `tg-client stats` | no | `{ "messages": <int> }` |
-| `tg-client sync` | yes | `{ "chatsDone", "messages", "errors": [...] }` |
+| `tg-client sync` | yes | `{ "chatsDone", "messages", "errors": [...] }` on stdout |
 | `tg-client delete <chatId>:<msgId> ...` | yes | `{ "deleted": <int>, "errors": [...] }` |
 | `tg-client help` | no | usage JSON |
+| `tg-client --version` | no | `{ "version": "<semver>" }` |
 
 **Pattern**: a plain string matches case-insensitively; `/regex/flags` is used verbatim.
 `date` is unix seconds; `out` is `1` for messages you sent, `0` for received.

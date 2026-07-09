@@ -24,7 +24,19 @@ async function run(argv: string[]) {
 test('help lists the commands', async () => {
   const { code, out } = await run(['help'])
   expect(code).toBe(0)
-  expect(Object.keys(out.commands as object)).toEqual(['search', 'stats', 'sync', 'delete'])
+  expect(Object.keys(out.commands as object)).toEqual([
+    'search',
+    'stats',
+    'sync',
+    'delete',
+    'version',
+  ])
+})
+
+test('version reports the package version', async () => {
+  const { code, out } = await run(['--version'])
+  expect(code).toBe(0)
+  expect(out.version).toMatch(/^\d+\.\d+\.\d+$/)
 })
 
 test('unknown command errors with usage', async () => {

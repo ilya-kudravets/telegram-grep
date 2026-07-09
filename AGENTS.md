@@ -7,9 +7,11 @@ Setup guide for AI agents driving **telegram-grep** via its headless JSON CLI
 ## What this is
 
 A local cache of a Telegram account's messages with regex search and
-delete-everywhere. The CLI emits one line of JSON per command, so an agent can
-parse results and chain calls. `search`/`stats` are **offline** (read
-`data/cache.db`, no network, no auth); `sync`/`delete` connect to Telegram.
+delete-everywhere. The CLI emits one line of JSON on stdout per command, so an
+agent can parse results and chain calls — `sync` additionally streams progress
+to stderr as it runs, which agents should ignore (or log) but not parse.
+`search`/`stats` are **offline** (read `data/cache.db`, no network, no auth);
+`sync`/`delete` connect to Telegram.
 
 ## Install
 
@@ -55,9 +57,10 @@ need none of this.
 |---|---|---|
 | `tg-client search "<regex\|/pat/flags>" [--limit N]` | no | `{count, results:[{chat_id,id,date,sender,text,out,chat_title}]}` |
 | `tg-client stats` | no | `{messages}` |
-| `tg-client sync` | yes | `{chatsDone, messages, errors}` |
+| `tg-client sync` | yes | `{chatsDone, messages, errors}` (stdout); progress on stderr meanwhile |
 | `tg-client delete <chatId>:<msgId> ...` | yes | `{deleted, errors}` |
 | `tg-client help` | no | usage JSON |
+| `tg-client --version` | no | `{version}` |
 
 `out` is `1` for messages you sent, `0` for received; `date` is unix seconds.
 A plain search string matches case-insensitively; `/regex/flags` is used verbatim.

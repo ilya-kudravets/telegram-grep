@@ -1,9 +1,21 @@
 import { mkdirSync } from 'node:fs'
 import { networkMiddlewares, TelegramClient } from '@mtcute/bun'
+import type { SyncProgress } from './core/sync'
 import { detectLangEnv, makeT } from './i18n'
 
 export const lang = detectLangEnv()
 export const t = makeT(lang)
+
+const bar = (done: number, total: number, width = 20) =>
+  '█'.repeat(total ? Math.round((done / total) * width) : 0).padEnd(width, '░')
+
+// shared between the TUI status bar (index.ts) and the headless CLI's sync progress (cli.ts)
+export function formatSyncLine(p: SyncProgress): string {
+  const b = `[${bar(p.chatsDone, p.chatsTotal)}] ${p.chatsDone}/${p.chatsTotal}`
+  return p.floodWait !== undefined
+    ? t('syncFloodLine', b, p.floodWait, p.chatTitle)
+    : t('syncLine', b, p.chatTitle, p.messages)
+}
 
 let floodListener: (seconds: number) => void = () => {}
 export function onFlood(fn: (seconds: number) => void) {
