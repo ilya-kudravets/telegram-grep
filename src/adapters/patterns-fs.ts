@@ -14,7 +14,16 @@ export function loadPatterns(path: string): string[] {
   }
 }
 
-// returns the watcher so callers (and tests) can stop watching
-export function watchPatterns(path: string, onChange: (patterns: string[]) => void) {
-  return watch(path, () => onChange(loadPatterns(path)))
+// returns the watcher so callers (and tests) can stop watching.
+// unlike readFileSync, fs.watch throws synchronously (ENOENT) if the file
+// doesn't exist yet — patterns.txt is optional, so that must not crash.
+export function watchPatterns(
+  path: string,
+  onChange: (patterns: string[]) => void,
+): { close(): void } {
+  try {
+    return watch(path, () => onChange(loadPatterns(path)))
+  } catch {
+    return { close() {} }
+  }
 }

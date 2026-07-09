@@ -106,4 +106,8 @@ describe('watchPatterns', () => {
     })
     expect(await got).toEqual(['bar', 'baz'])
   })
+
+  test('missing file does not throw, and returns a closeable no-op watcher', () => {
+    expect(() => watchPatterns('/nonexistent/patterns.txt', () => {}).close()).not.toThrow()
+  })
 })
