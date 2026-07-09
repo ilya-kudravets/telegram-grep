@@ -1,13 +1,15 @@
 import './src/polyfills' // MUST be first
-import { useEffect, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
-  Button,
-  FlatList,
+  Pressable,
   SafeAreaView,
   ScrollView,
+  StatusBar,
+  StyleSheet,
   Text,
   TextInput,
+  useColorScheme,
   View,
 } from 'react-native'
 import { createClient } from './src/mtcute-rn/adapter'
@@ -15,7 +17,53 @@ import { probeTelegram, type Result, runSelfTest } from './src/mtcute-rn/verify'
 
 type Ask = 'phone' | 'code' | 'password' | null
 
+// iOS system colors (Apple HIG) for light / dark.
+function palette(dark: boolean) {
+  return {
+    bg: dark ? '#000000' : '#f2f2f7',
+    card: dark ? '#1c1c1e' : '#ffffff',
+    label: dark ? '#ffffff' : '#000000',
+    label2: dark ? 'rgba(235,235,245,0.6)' : 'rgba(60,60,67,0.6)',
+    label3: dark ? 'rgba(235,235,245,0.3)' : 'rgba(60,60,67,0.3)',
+    separator: dark ? 'rgba(84,84,88,0.6)' : 'rgba(60,60,67,0.29)',
+    tint: dark ? '#0a84ff' : '#007aff',
+    red: dark ? '#ff453a' : '#ff3b30',
+    green: dark ? '#30d158' : '#34c759',
+    field: dark ? 'rgba(118,118,128,0.24)' : 'rgba(118,118,128,0.12)',
+    avatar: dark ? '#0a84ff' : '#007aff',
+  }
+}
+type Theme = ReturnType<typeof palette>
+
+// Grouped section: uppercase footnote header + rounded card with inset hairline separators.
+function Section({ theme, title, children }: { theme: Theme; title: string; children: ReactNode[] }) {
+  const rows = children.filter(Boolean)
+  return (
+    <View style={{ marginBottom: 22 }}>
+      <Text style={[s.sectionHeader, { color: theme.label2 }]}>{title.toUpperCase()}</Text>
+      <View style={[s.card, { backgroundColor: theme.card }]}>
+        {rows.map((row, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: fixed-order presentational rows
+          <View key={i}>
+            {row}
+            {i < rows.length - 1 ? (
+              <View style={[s.separator, { backgroundColor: theme.separator }]} />
+            ) : null}
+          </View>
+        ))}
+      </View>
+    </View>
+  )
+}
+
+function Dot({ color }: { color: string }) {
+  return <View style={[s.dot, { backgroundColor: color }]} />
+}
+
 export default function App() {
+  const dark = useColorScheme() === 'dark'
+  const theme = palette(dark)
+
   const [tests, setTests] = useState<Result[]>([])
   const [probe, setProbe] = useState('…')
   const [status, setStatus] = useState('idle')
@@ -83,68 +131,147 @@ export default function App() {
   }
 
   const passed = tests.filter((t) => t.ok).length
+  const probeOk = probe.startsWith('handshake')
+  const probePending = probe === '…'
+  const busy = status.endsWith('…')
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 14 }}>
-        <Text style={{ fontSize: 22, fontWeight: '700' }}>mtcute-rn spike</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+      <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} />
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+        <Text style={[s.largeTitle, { color: theme.label }]}>mtcute-rn</Text>
 
         {/* --- crypto self-test --- */}
-        <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 16, fontWeight: '600' }}>
-            crypto self-test{tests.length ? `  (${passed}/${tests.length})` : '…'}
-          </Text>
-          {tests.length === 0 ? <ActivityIndicator /> : null}
-          {tests.map((t) => (
-            <View key={t.name} style={{ flexDirection: 'row', gap: 8 }}>
-              <Text>{t.ok ? '✅' : '❌'}</Text>
-              <Text style={{ flex: 1 }}>
-                {t.name}
-                {t.ok ? '' : `  → ${t.detail}`}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={{ height: 1, backgroundColor: '#ddd' }} />
+        <Section theme={theme} title={`Crypto self-test${tests.length ? `  ${passed}/${tests.length}` : ''}`}>
+          {tests.length === 0
+            ? [
+                <View style={s.row} key="loading">
+                  <ActivityIndicator color={theme.label2} />
+                  <Text style={[s.rowText, { color: theme.label2 }]}>running…</Text>
+                </View>,
+              ]
+            : tests.map((t) => (
+                <View style={s.row} key={t.name}>
+                  <Dot color={t.ok ? theme.green : theme.red} />
+                  <Text style={[s.rowText, { color: theme.label }]} numberOfLines={t.ok ? 1 : 3}>
+                    {t.name}
+                    {t.ok ? '' : `  → ${t.detail}`}
+                  </Text>
+                </View>
+              ))}
+        </Section>
 
         {/* --- transport probe (auto, no login) --- */}
-        <Text style={{ fontSize: 16, fontWeight: '600' }}>transport probe</Text>
-        <Text style={{ color: probe.startsWith('handshake') ? 'green' : probe === '…' ? '#666' : 'crimson' }}>
-          {probe}
-        </Text>
-
-        <View style={{ height: 1, backgroundColor: '#ddd' }} />
+        <Section theme={theme} title="Transport probe">
+          {[
+            <View style={s.row} key="probe">
+              {probePending ? (
+                <ActivityIndicator color={theme.label2} />
+              ) : (
+                <Dot color={probeOk ? theme.green : theme.red} />
+              )}
+              <Text style={[s.rowText, { color: probePending ? theme.label2 : theme.label }]} numberOfLines={3}>
+                {probe}
+              </Text>
+            </View>,
+          ]}
+        </Section>
 
         {/* --- live Telegram login --- */}
-        <Text style={{ fontSize: 16, fontWeight: '600' }}>live connect</Text>
-        <Text>status: {status}</Text>
-        {me ? <Text>logged in as: {me}</Text> : null}
-        {status === 'idle' ? <Button title="Connect to Telegram" onPress={run} /> : null}
-        {status.endsWith('…') && !ask ? <ActivityIndicator /> : null}
+        <Section theme={theme} title="Live connect">
+          {[
+            <View style={s.row} key="status">
+              <Text style={[s.rowText, { color: theme.label }]}>Status</Text>
+              <Text style={[s.rowValue, { color: theme.label2 }]}>{status}</Text>
+            </View>,
+            me ? (
+              <View style={s.row} key="me">
+                <Text style={[s.rowText, { color: theme.label }]}>Logged in</Text>
+                <Text style={[s.rowValue, { color: theme.label2 }]} numberOfLines={1}>
+                  {me}
+                </Text>
+              </View>
+            ) : null,
+            status === 'idle' ? (
+              <Pressable
+                key="connect"
+                onPress={run}
+                style={({ pressed }) => [s.row, s.center, pressed && { opacity: 0.4 }]}
+              >
+                <Text style={[s.rowText, s.action, { color: theme.tint }]}>Connect to Telegram</Text>
+              </Pressable>
+            ) : null,
+            busy && !ask ? (
+              <View style={[s.row, s.center]} key="spin">
+                <ActivityIndicator color={theme.tint} />
+              </View>
+            ) : null,
+          ]}
+        </Section>
 
+        {/* --- credential prompt --- */}
         {ask ? (
-          <View style={{ gap: 8 }}>
-            <Text>enter {ask}:</Text>
-            <TextInput
-              value={value}
-              onChangeText={setValue}
-              autoFocus
-              secureTextEntry={ask === 'password'}
-              keyboardType={ask === 'phone' || ask === 'code' ? 'phone-pad' : 'default'}
-              style={{ borderWidth: 1, borderColor: '#999', padding: 10, borderRadius: 8 }}
-            />
-            <Button title="OK" onPress={submit} />
-          </View>
+          <Section theme={theme} title={`Enter ${ask}`}>
+            {[
+              <View style={s.row} key="input">
+                <TextInput
+                  value={value}
+                  onChangeText={setValue}
+                  autoFocus
+                  placeholder={ask}
+                  placeholderTextColor={theme.label3}
+                  secureTextEntry={ask === 'password'}
+                  keyboardType={ask === 'phone' || ask === 'code' ? 'phone-pad' : 'default'}
+                  onSubmitEditing={submit}
+                  returnKeyType="done"
+                  style={[s.input, { color: theme.label }]}
+                />
+              </View>,
+              <Pressable
+                key="ok"
+                onPress={submit}
+                style={({ pressed }) => [s.row, s.center, pressed && { opacity: 0.4 }]}
+              >
+                <Text style={[s.rowText, s.action, { color: theme.tint }]}>OK</Text>
+              </Pressable>,
+            ]}
+          </Section>
         ) : null}
 
-        <FlatList
-          scrollEnabled={false}
-          data={dialogs}
-          keyExtractor={(_, i) => String(i)}
-          renderItem={({ item }) => <Text style={{ paddingVertical: 3 }}>• {item}</Text>}
-        />
+        {/* --- dialogs --- */}
+        {dialogs.length ? (
+          <Section theme={theme} title={`Chats  ${dialogs.length}`}>
+            {dialogs.map((title, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: dialog list is display-only, order stable
+              <View style={s.chatRow} key={i}>
+                <View style={[s.avatar, { backgroundColor: theme.avatar }]}>
+                  <Text style={s.avatarText}>{(title.trim()[0] ?? '?').toUpperCase()}</Text>
+                </View>
+                <Text style={[s.rowText, { color: theme.label }]} numberOfLines={1}>
+                  {title}
+                </Text>
+              </View>
+            ))}
+          </Section>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   )
 }
+
+const s = StyleSheet.create({
+  largeTitle: { fontSize: 34, fontWeight: '700', letterSpacing: -0.4, marginBottom: 18, marginTop: 4 },
+  sectionHeader: { fontSize: 13, fontWeight: '400', marginLeft: 16, marginBottom: 7, letterSpacing: 0.3 },
+  card: { borderRadius: 12, overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, minHeight: 44, paddingVertical: 11 },
+  center: { justifyContent: 'center' },
+  chatRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, minHeight: 56, paddingVertical: 8 },
+  separator: { height: StyleSheet.hairlineWidth, marginLeft: 16 },
+  rowText: { flex: 1, fontSize: 17 },
+  rowValue: { fontSize: 17, flexShrink: 1, textAlign: 'right' },
+  action: { flex: 0, fontWeight: '400' },
+  dot: { width: 10, height: 10, borderRadius: 5 },
+  input: { flex: 1, fontSize: 17, paddingVertical: 0 },
+  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: '#fff', fontSize: 18, fontWeight: '600' },
+})

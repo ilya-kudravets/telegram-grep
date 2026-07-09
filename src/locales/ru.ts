@@ -30,6 +30,7 @@ export const ru: Partial<Dict> = {
   deleteErrors: ', ошибок {0}: {1}',
   patternN: 'паттерн {0}/{1}',
   patternsEmpty: 'patterns.txt пуст',
+  appTitle: 'Поиск',
   confirmDeleteWeb: 'Удалить {0} сообщ. на всех устройствах?',
   selectAll: 'все ({0})',
   deleteBtn: 'Удалить ({0})',
