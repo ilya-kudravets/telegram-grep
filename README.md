@@ -27,9 +27,10 @@ Any subcommand runs headless and prints one line of JSON — no TUI. `tg-client 
 
 - `bun start search "<regex|/pat/flags>" [--limit N]` — search the cache (offline, no auth) → `{count, results}`
 - `bun start stats` — number of cached messages (offline) → `{messages}`
-- `bun start sync` — download/update history (needs auth) → `{chatsDone, messages, errors}`
+- `bun start sync` — download/update history (needs auth) → `{chatsDone, messages, errors}`; progress prints to stderr as it runs (one line per update, overwritten in place on a TTY), so stdout stays a single JSON line
 - `bun start delete <chatId>:<msgId> ...` — delete for everyone (needs auth) → `{deleted, errors}`
 - `bun start help` — usage JSON
+- `bun start --version` — `{version}`
 
 `search`/`stats` read `data/cache.db` directly and need no Telegram connection.
 Build a standalone binary with `bun run build` (→ `dist/tg-client`); `git tag v*`

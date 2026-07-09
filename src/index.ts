@@ -1,5 +1,5 @@
 import { runCli } from './cli'
-import { createClient, login, onFlood, t } from './client'
+import { createClient, formatSyncLine, login, onFlood, t } from './client'
 import { openCache } from './db'
 import { deleteEverywhere } from './deleter'
 import { ensureEnvFile } from './env'
@@ -42,17 +42,7 @@ watchPatterns('patterns.txt', () => tui.setStatus(t('patternsReloaded')))
 attachRealtime(tg, cache, () => tui.refresh())
 await tg.startUpdatesLoop()
 
-const bar = (done: number, total: number, width = 20) =>
-  '█'.repeat(total ? Math.round((done / total) * width) : 0).padEnd(width, '░')
-
-syncAll(tg, cache, (p) => {
-  const b = `[${bar(p.chatsDone, p.chatsTotal)}] ${p.chatsDone}/${p.chatsTotal}`
-  tui.setStatus(
-    p.floodWait !== undefined
-      ? t('syncFloodLine', b, p.floodWait, p.chatTitle)
-      : t('syncLine', b, p.chatTitle, p.messages),
-  )
-})
+syncAll(tg, cache, (p) => tui.setStatus(formatSyncLine(p)))
   .then((p) =>
     tui.setStatus(
       t('syncDone', p.chatsDone, cache.count()) +

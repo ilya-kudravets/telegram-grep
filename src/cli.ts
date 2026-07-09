@@ -2,7 +2,8 @@
 // search/stats are offline (cache only, no Telegram connection); sync/delete
 // need an authenticated session (data/session or SESSION_STRING in .env).
 import { mkdirSync } from 'node:fs'
-import { createClient, login } from './client'
+import pkg from '../package.json'
+import { createClient, formatSyncLine, login } from './client'
 import { openCache } from './db'
 import { type DeleteTarget, deleteEverywhere } from './deleter'
 import { compilePattern, searchCache } from './search'
@@ -23,6 +24,7 @@ const USAGE = {
     stats: 'stats — number of cached messages (offline)',
     sync: 'sync — download/update history from Telegram (needs auth)',
     delete: 'delete <chatId>:<msgId> ... — delete messages for everyone (needs auth)',
+    version: 'version — print the tg-client version',
   },
 }
 
@@ -90,7 +92,14 @@ export async function runCli(argv: string[]): Promise<number> {
       const tg = await authedClient()
       if (!tg) return 1
       const cache = openDb()
-      const p = await syncAll(tg, cache)
+      // progress goes to stderr, one line per update — a TTY overwrites in place,
+      // a pipe/log gets one line per update. stdout stays the single JSON result
+      // line agents rely on.
+      const p = await syncAll(tg, cache, (progress) => {
+        const line = formatSyncLine(progress)
+        process.stderr.write(process.stderr.isTTY ? `\r${line}\x1b[K` : `${line}\n`)
+      })
+      if (process.stderr.isTTY) process.stderr.write('\n')
       out({ chatsDone: p.chatsDone, messages: cache.count(), errors: p.errors })
       cache.close()
       return 0
@@ -124,6 +133,12 @@ export async function runCli(argv: string[]): Promise<number> {
     case '--help':
     case '-h':
       out(USAGE)
+      return 0
+
+    case 'version':
+    case '--version':
+    case '-v':
+      out({ version: pkg.version })
       return 0
 
     default:
