@@ -2,6 +2,7 @@ import { runCli } from './cli'
 import { createClient, login, onFlood, t } from './client'
 import { openCache } from './db'
 import { deleteEverywhere } from './deleter'
+import { ensureEnvFile } from './env'
 import { compilePattern, loadPatterns, searchCache, watchPatterns } from './search'
 import { attachRealtime, syncAll } from './sync'
 
@@ -10,6 +11,13 @@ import { attachRealtime, syncAll } from './sync'
 const cmd = process.argv[2]
 if (cmd && cmd !== 'tui') {
   process.exit(await runCli(process.argv.slice(2)))
+}
+
+if (ensureEnvFile()) {
+  console.log(
+    'Created .env — fill in API_ID/API_HASH (https://my.telegram.org → API development tools) and rerun.',
+  )
+  process.exit(0)
 }
 
 const tg = createClient()

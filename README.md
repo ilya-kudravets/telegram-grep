@@ -8,9 +8,9 @@ Telegram TUI client: local cache of all chats, regex search, delete messages acr
 
 ## Getting started
 
-1. Get `API_ID`/`API_HASH` at https://my.telegram.org → API development tools, put them in `.env`
-2. `bun install`
-3. `bun start` — on first run it asks for phone/code/2FA, then downloads history (incrementally: a restart only fetches what's new)
+1. `bun install`
+2. `bun start` — if `.env` is missing (and `API_ID`/`API_HASH` aren't set as real env vars) it creates one from a template and exits; get `API_ID`/`API_HASH` at https://my.telegram.org → API development tools and fill it in
+3. `bun start` again — on first run it asks for phone/code/2FA, then downloads history (incrementally: a restart only fetches what's new)
 
 ## Usage
 
