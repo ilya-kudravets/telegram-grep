@@ -34,6 +34,7 @@ export const en = {
   patternN: 'pattern {0}/{1}',
   patternsEmpty: 'patterns.txt is empty',
   // web
+  appTitle: 'Search',
   confirmDeleteWeb: 'Delete {0} message(s) everywhere?',
   selectAll: 'all ({0})',
   deleteBtn: 'Delete ({0})',

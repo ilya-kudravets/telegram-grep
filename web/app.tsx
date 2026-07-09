@@ -168,6 +168,7 @@ function App() {
   return (
     <div className="app">
       <header>
+        <h1 className="large-title">{t('appTitle')}</h1>
         <div className="topbar">
           <input
             type="search"
