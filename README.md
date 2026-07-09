@@ -20,6 +20,24 @@ Telegram TUI client: local cache of all chats, regex search, delete messages acr
 
 Cache and session live in `data/` (not committed).
 
+## CLI mode (for AI agents)
+
+Any subcommand runs headless and prints one line of JSON — no TUI. `tg-client tui`
+(or no args) still launches the interactive client.
+
+- `bun start search "<regex|/pat/flags>" [--limit N]` — search the cache (offline, no auth) → `{count, results}`
+- `bun start stats` — number of cached messages (offline) → `{messages}`
+- `bun start sync` — download/update history (needs auth) → `{chatsDone, messages, errors}`
+- `bun start delete <chatId>:<msgId> ...` — delete for everyone (needs auth) → `{deleted, errors}`
+- `bun start help` — usage JSON
+
+`search`/`stats` read `data/cache.db` directly and need no Telegram connection.
+Build a standalone binary with `bun run build` (→ `dist/tg-client`); `git tag v*`
+publishes per-platform binaries via `.github/workflows/release.yml`. See
+[AGENTS.md](AGENTS.md) for the agent setup guide and the
+[`telegram-grep-cli` skill](skills/telegram-grep-cli/SKILL.md) that downloads
+that binary and documents the commands.
+
 ## Testing
 
 - `bun test` — unit tests.
