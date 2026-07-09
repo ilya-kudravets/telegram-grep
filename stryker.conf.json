@@ -5,6 +5,7 @@
   "checkers": ["typescript"],
   "tsconfigFile": "tsconfig.json",
   "coverageAnalysis": "off",
+  "ignorePatterns": ["spike-rn", "web", "data", "reports", "dist"],
   "mutate": [
     "src/api.ts",
     "src/adapters/bun-sqlite.ts",
