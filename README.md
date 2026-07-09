@@ -65,4 +65,5 @@ The UI follows the system language (ru/en); translations live in `src/locales/*.
 - To access from a phone: `LAN=1 bun run web` (listens on `0.0.0.0`). The console prints a URL with a token.
 - `/api/*` is token-protected (`Authorization: Bearer`, stored in `data/web-token`). Open the printed `…/?token=…` URL once — the token is saved in the browser, after which you can install it as a PWA (Safari → "Add to Home Screen") with the plain address. Origin is also checked, so third-party sites can't call the API (CSRF).
 - The TUI (`bun start`) and web (`bun run web`) share one Telegram session — run only one at a time.
-- `SESSION_STRING` in `.env` (exported from mtcute) — sign in without phone/code.
+- Auth persists to `data/session` after first login — no need to log in again on restart.
+- For a one-off headless login (no `data/session` yet, no TTY), pass a session string exported from mtcute as a real env var: `SESSION_STRING=... bun start`. An invalid/stale value is ignored (with a warning) rather than needed on every run, so there's no reason to keep it in `.env` once you're logged in.
