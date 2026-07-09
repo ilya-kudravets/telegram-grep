@@ -89,6 +89,10 @@ input[type="search"] {
 input[type="search"]::placeholder {
   color: var(--label-2);
 }
+input[type="search"]:focus-visible {
+  outline: 2px solid var(--tint);
+  outline-offset: 2px;
+}
 .topbar select {
   background: var(--field);
   color: var(--label);

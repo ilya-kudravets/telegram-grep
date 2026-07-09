@@ -32,7 +32,6 @@ export function openCache(path: string): Cache {
   const setOldestStmt = db.prepare(SQL.setOldestId)
   const markBackfilledStmt = db.prepare(SQL.markBackfilled)
   const insertMsgStmt = db.prepare(SQL.insertMessage)
-  const searchStmt = db.prepare(SQL.search)
   const countStmt = db.prepare(SQL.count)
 
   // NB: inserting does NOT advance last_msg_id — history downloads newest-first,
@@ -99,7 +98,10 @@ export function openCache(path: string): Cache {
       }
     },
     iterAll(): IterableIterator<SearchRow> {
-      return searchStmt.iterate() as IterableIterator<SearchRow>
+      // fresh statement per call: searchCache breaks early once it hits its result
+      // limit, and bun:sqlite does NOT reset a shared statement's cursor — so a reused
+      // searchStmt would resume mid-scan and the next search would miss earlier rows.
+      return db.prepare(SQL.search).iterate() as IterableIterator<SearchRow>
     },
     count(): number {
       return (countStmt.get() as { n: number }).n

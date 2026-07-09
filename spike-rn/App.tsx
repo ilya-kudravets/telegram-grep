@@ -121,7 +121,7 @@ export default function App() {
       setStatus('fetching dialogs…')
       const titles: string[] = []
       for await (const d of tg.iterDialogs({ limit: 20 })) {
-        titles.push(d.chat.displayName ?? '(no title)')
+        titles.push(d.peer.displayName ?? '(no title)')
       }
       setDialogs(titles)
       setStatus('✅ done')
