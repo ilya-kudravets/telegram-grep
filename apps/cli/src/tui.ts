@@ -7,9 +7,9 @@ import {
   SelectRenderable,
   TextRenderable,
 } from '@opentui/core'
+import type { T } from '@tg/core/i18n'
 import type { SearchRow } from './db'
 import type { DeleteResult, DeleteTarget } from './deleter'
-import type { T } from './i18n'
 
 export interface TuiDeps {
   search: (pattern: string) => SearchRow[]

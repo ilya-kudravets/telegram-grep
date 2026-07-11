@@ -1,9 +1,9 @@
 {
   "name": "telegram-client",
   "version": "0.1.0",
-  "module": "src/index.ts",
   "type": "module",
   "private": true,
+  "workspaces": ["packages/*", "apps/*"],
   "devDependencies": {
     "@biomejs/biome": "^2.5.3",
     "@stryker-mutator/core": "^9.6.1",
@@ -15,21 +15,14 @@
   "peerDependencies": {
     "typescript": "^5"
   },
-  "dependencies": {
-    "@mtcute/bun": "^0.30.3",
-    "@mtcute/dispatcher": "^0.30.3",
-    "@opentui/core": "^0.4.3",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7"
-  },
   "scripts": {
-    "start": "bun run src/index.ts",
+    "start": "bun run apps/cli/src/index.ts",
+    "web": "bun run apps/cli/src/server.ts",
     "test": "bun test",
     "test:mutation": "stryker run",
     "typecheck": "tsc --noEmit",
     "lint": "biome ci",
     "format": "biome check --write",
-    "build": "bun build src/index.ts --compile --outfile dist/tg-client",
-    "web": "bun run src/server.ts"
+    "build": "bun build apps/cli/src/index.ts --compile --outfile dist/tg-client"
   }
 }

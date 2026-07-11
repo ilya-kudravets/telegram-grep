@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { networkMiddlewares, TelegramClient } from '@mtcute/bun'
-import type { SyncProgress } from './core/sync'
-import { detectLangEnv, makeT } from './i18n'
+import { detectLangEnv, makeT } from '@tg/core/i18n'
+import type { SyncProgress } from '@tg/core/sync'
 
 export const lang = detectLangEnv()
 export const t = makeT(lang)

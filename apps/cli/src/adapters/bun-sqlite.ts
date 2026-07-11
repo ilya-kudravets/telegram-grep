@@ -11,7 +11,7 @@ import {
   SCHEMA_SQL,
   type SearchRow,
   SQL,
-} from '../core/cache'
+} from '@tg/core/cache'
 
 export function openCache(path: string): Cache {
   const db = new Database(path, { create: true })

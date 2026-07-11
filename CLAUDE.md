@@ -9,6 +9,23 @@ Default to using Bun instead of Node.js.
 - Use `bunx <package> <command>` instead of `npx <package> <command>`
 - Bun automatically loads .env, so don't use dotenv.
 
+## Monorepo layout
+
+Bun workspaces (`workspaces` in the root `package.json`). Run everything from the repo root —
+cwd stays the root, so `.env` and `data/` live there.
+
+- `packages/core/` (`@tg/core`) — the **portable domain**: message-cache port (`cache.ts`), regex
+  search, history sync, delete-everywhere, and shared i18n. No platform code (no Bun, no `fs`).
+  Subpath exports mirror files: import `@tg/core/sync`, `@tg/core/cache`, `@tg/core/i18n`, …
+- `apps/cli/` (`@tg/cli`) — the Bun TUI/CLI/web frontend (`src/`, `web/`, `tests/`). Owns the
+  platform adapters (`adapters/bun-sqlite.ts` = the `Cache` port on `bun:sqlite`, `patterns-fs.ts`).
+  The `src/{db,search,sync,deleter}.ts` barrels re-export `@tg/core` + the local adapter.
+- `spike-rn/` — the React Native / Expo mtcute adapter (not yet a workspace member; see the
+  `mtcute-react-native` skill). Excluded from the root `tsconfig`/biome/stryker.
+
+Root scripts drive the whole repo: `bun start` / `bun run web` / `bun run build` target
+`apps/cli`; the compiled binary reads its version from the **root** `package.json`.
+
 ## APIs
 
 - `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
@@ -37,8 +54,11 @@ test("hello world", () => {
 **command runner** (`bun test`) since Stryker has no Bun-native runner, plus the **typescript-checker**
 to discard mutants that don't compile. Reports land in `reports/mutation/` (gitignored).
 
-- Keep the score at 100%: any new `src/*.ts` logic needs tests that kill its mutants.
-- Some `src/` functions take an injected seam for testability (e.g. `syncAll`'s `sleepMs`,
+- Keep the score at 100%: any new logic in the mutated files (`packages/core/src/*`,
+  `apps/cli/src/{api,adapters/*}`) needs tests that kill its mutants. Mutated paths are listed in
+  `stryker.conf.json`; the `typescript-checker` plugin is declared explicitly there (bun's
+  isolated workspace `node_modules` breaks Stryker's default plugin auto-discovery).
+- Some functions take an injected seam for testability (e.g. `syncAll`'s `sleepMs`,
   `attachRealtime`'s dispatcher factory) — default args keep call sites unchanged.
 - Only mark a mutant with `// Stryker disable next-line <Mutator>: <reason>` when it is **provably
   equivalent** (no test can observe the difference). Prefer a real test over a disable.

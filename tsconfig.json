@@ -11,6 +11,11 @@
 
     // Bundler mode
     "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@tg/core": ["./packages/core/src/index.ts"],
+      "@tg/core/*": ["./packages/core/src/*"]
+    },
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
@@ -27,5 +32,5 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
   },
-  "exclude": ["spike-rn", "node_modules"]
+  "exclude": ["spike-rn", "apps/mobile", "node_modules", "dist", "reports", ".stryker-tmp"]
 }

@@ -1,6 +1,6 @@
+import { LANGS, type Lang, makeT, normalizeLang } from '@tg/core/i18n'
 import { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { LANGS, type Lang, makeT, normalizeLang } from '../src/i18n'
 import './app.css'
 
 // '' = follow the browser; otherwise a forced locale, persisted in localStorage
