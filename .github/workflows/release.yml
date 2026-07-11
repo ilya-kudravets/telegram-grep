@@ -57,7 +57,7 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-${{ runner.arch }}-bun-
       - run: bun install --frozen-lockfile
-      - run: bun build src/index.ts --compile --outfile ${{ matrix.asset }}
+      - run: bun build apps/cli/src/index.ts --compile --outfile ${{ matrix.asset }}
       - env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "${{ needs.release-please.outputs.tag_name }}" "${{ matrix.asset }}"

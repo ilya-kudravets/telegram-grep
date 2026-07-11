@@ -1,0 +1,12 @@
+{
+  "name": "@tg/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "module": "src/index.ts",
+  "dependencies": {
+    "@opentui/core": "^0.4.3",
+    "@tg/bun": "workspace:*",
+    "@tg/core": "workspace:*"
+  }
+}
