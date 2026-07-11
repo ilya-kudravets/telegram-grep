@@ -18,8 +18,10 @@ mobile:
 mobile-ios:
 	cd apps/mobile && bun run ios
 
+# JDK 17 required: the default JDK 26 breaks nitro-modules' CMake native configure
+# (restricted java.lang.System.load on JDK 24+). Resolve 17 via macOS java_home.
 mobile-android:
-	cd apps/mobile && bun run android
+	cd apps/mobile && JAVA_HOME="$$(/usr/libexec/java_home -v 17)" bun run android
 
 # regenerate the native ios/ + android/ projects (run after native dep changes)
 mobile-prebuild:
