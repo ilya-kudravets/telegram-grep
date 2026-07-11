@@ -38,9 +38,23 @@ Everything installs from the repo root (`bun install`). Then, from this folder:
 
 ```sh
 cp .env.example .env          # EXPO_PUBLIC_API_ID / EXPO_PUBLIC_API_HASH from my.telegram.org
-npx expo prebuild             # regenerates ios/ + installs pods (needs CocoaPods)
-npx expo run:ios              # or: bun run mobile  (from the repo root — Expo dev server)
+npx expo prebuild             # regenerates ios/ + android/ (pods need CocoaPods)
+npx expo run:ios              # or: make mobile-ios     (from the repo root)
+npx expo run:android          # or: make mobile-android (needs the Android setup below)
 ```
+
+Verified building + running on an **iOS simulator** (iPhone 17) and an **Android
+emulator** (Pixel 9) — the expo-sqlite cache opens on-device on both.
+
+**Android build prerequisites** (host environment — can't live in the repo):
+
+- **JDK 17.** AGP's native (CMake) configure breaks on JDK 24+ with
+  `restricted method in java.lang.System`. Point Gradle at 17:
+  `export JAVA_HOME=$(/usr/libexec/java_home -v 17)`.
+- **NDK `27.1.12297006`** + **CMake `3.22.1`** — install via Android Studio's SDK
+  Manager (SDK Tools tab) or `sdkmanager "ndk;27.1.12297006" "cmake;3.22.1"`.
+- After a project move/rename, `make mobile-clean && make mobile-prebuild` clears
+  stale native build caches (Gradle keys some C++/Kotlin outputs to absolute paths).
 
 `bun test apps/mobile/src/mtcute-rn/ige.test.ts` runs the offline AES-IGE check (no RN needed).
 
@@ -55,6 +69,6 @@ npx expo run:ios              # or: bun run mobile  (from the repo root — Expo
 ## Not covered (deliberately)
 
 - **Background / push** — iOS suspends the WS in background; APNs/FCM device-token push is a separate native piece.
-- **Android** — the same JS runs; native deps (quick-crypto/nitro) build on Android too, not yet exercised.
+- **Physical devices / release signing** — verified on the iOS simulator and Android emulator only; store builds (signing, a non-`com.anonymous` bundle id) are untouched.
 - **Search scale** — full JS scan over the cache (as on desktop); add an FTS index if the cache grows past a few million rows.
 - **App identity** — `app.json` still carries the spike's `tg-spike` slug / `com.anonymous.tg-spike` bundle id; rename before a store build (triggers a prebuild regen).
