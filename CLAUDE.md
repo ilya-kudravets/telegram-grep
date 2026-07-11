@@ -34,9 +34,16 @@ cwd stays the root, so `.env` and `data/` live there.
   the root `tsconfig`/biome/stryker** (own RN toolchain): typecheck with `cd apps/mobile && tsc`.
 
 Root scripts drive the whole repo: `bun start` → `apps/cli`, `bun run web` → `apps/web`,
-`bun run mobile` → `apps/mobile` (Expo), `bun run build` compiles the `apps/cli` binary (which
-reads its version from the **root** `package.json`). Tests live beside their package (`packages/*/tests`, `apps/*/tests`); `bun test`
-and Stryker discover them repo-wide regardless of location.
+`bun run mobile` → `apps/mobile` (Expo — the script `cd`s into the app and uses `bunx expo` so the
+app-local binary resolves), `bun run build` compiles the `apps/cli` binary (which reads its version
+from the **root** `package.json`). Tests live beside their package (`packages/*/tests`,
+`apps/*/tests`); `bun test` and Stryker discover them repo-wide regardless of location.
+
+A root `Makefile` wraps these for convenience (`make check` = typecheck + lint + test +
+**`mobile-typecheck`**, since `apps/mobile` sits outside the root `tsc`). Mobile-specific targets:
+`make mobile-ios` / `mobile-android` (native build + launch), `make mobile-prebuild` (regenerate
+`ios/`+`android/` after native dep changes), and `make mobile-clean` (wipe the generated native
+dirs + stale RN build caches — run this after moving/renaming the app, then `make mobile-prebuild`).
 
 ## APIs
 
