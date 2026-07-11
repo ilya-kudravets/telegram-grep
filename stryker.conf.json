@@ -6,7 +6,7 @@
   "plugins": ["@stryker-mutator/typescript-checker"],
   "tsconfigFile": "tsconfig.json",
   "coverageAnalysis": "off",
-  "ignorePatterns": ["spike-rn", "apps/mobile", "apps/web/web", "data", "reports", "dist"],
+  "ignorePatterns": ["apps/mobile", "apps/web/web", "data", "reports", "dist"],
   "mutate": [
     "apps/web/src/api.ts",
     "packages/bun/src/adapters/bun-sqlite.ts",

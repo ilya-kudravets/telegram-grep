@@ -33,5 +33,5 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
   },
-  "exclude": ["spike-rn", "apps/mobile", "node_modules", "dist", "reports", ".stryker-tmp"]
+  "exclude": ["apps/mobile", "node_modules", "dist", "reports", ".stryker-tmp"]
 }

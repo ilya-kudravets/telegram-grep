@@ -7,7 +7,8 @@
       "packages/*/tests/**",
       "apps/*/src/**",
       "apps/*/web/**",
-      "apps/*/tests/**"
+      "apps/*/tests/**",
+      "!apps/mobile"
     ]
   },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },

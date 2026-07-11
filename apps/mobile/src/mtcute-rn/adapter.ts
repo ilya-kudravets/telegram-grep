@@ -1,4 +1,5 @@
-import type { BasicDcOption, ICorePlatform, IPacketCodec, TelegramTransport } from '@mtcute/core'
+import type { ICorePlatform, IPacketCodec, TelegramTransport } from '@mtcute/core'
+import type { BasicDcOption } from '@mtcute/core/utils.js'
 import { IntermediatePacketCodec, MemoryStorage, ObfuscatedPacketCodec } from '@mtcute/core'
 // BaseTelegramClient/TelegramClient live in /client.js, NOT the root (root → undefined).
 import { BaseTelegramClient, TelegramClient } from '@mtcute/core/client.js'

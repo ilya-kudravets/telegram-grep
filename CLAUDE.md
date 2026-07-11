@@ -25,12 +25,17 @@ cwd stays the root, so `.env` and `data/` live there.
   Deps: `@tg/bun` + `@tg/core` + `@opentui/core`.
 - `apps/web/` (`@tg/web`) — the `Bun.serve` server (`server.ts`, `api.ts`, `webauth.ts`) + the
   browser bundle (`web/`). Deps: `@tg/bun` + `@tg/core` + `react`/`react-dom`.
-- `spike-rn/` — the React Native / Expo mtcute adapter (not yet a workspace member; see the
-  `mtcute-react-native` skill). Excluded from the root `tsconfig`/biome/stryker.
+- `apps/mobile/` (`@tg/mobile`) — the React Native / Expo client. Consumes `@tg/core` (sync/
+  search/delete/realtime) through an **expo-sqlite** `Cache` adapter (`src/cache.ts`, sibling of
+  the bun one) and the RN mtcute adapter (`src/mtcute-rn/`, see the `mtcute-react-native` skill);
+  UI in `App.tsx`. mtcute auth persists as an exported session string in a `kv` table in the same
+  DB (no mtcute storage driver). Uses `EXPO_PUBLIC_API_ID/HASH` from `apps/mobile/.env` (Expo reads
+  the app dir, not the repo root). Metro is monorepo-aware via `metro.config.js`. **Excluded from
+  the root `tsconfig`/biome/stryker** (own RN toolchain): typecheck with `cd apps/mobile && tsc`.
 
 Root scripts drive the whole repo: `bun start` → `apps/cli`, `bun run web` → `apps/web`,
-`bun run build` compiles the `apps/cli` binary (which reads its version from the **root**
-`package.json`). Tests live beside their package (`packages/*/tests`, `apps/*/tests`); `bun test`
+`bun run mobile` → `apps/mobile` (Expo), `bun run build` compiles the `apps/cli` binary (which
+reads its version from the **root** `package.json`). Tests live beside their package (`packages/*/tests`, `apps/*/tests`); `bun test`
 and Stryker discover them repo-wide regardless of location.
 
 ## APIs

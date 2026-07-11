@@ -5,7 +5,6 @@ import { Buffer } from 'buffer'
 install() // sets global.crypto (getRandomValues, subtle) backed by native OpenSSL
 
 // mtcute/fuman mostly use Uint8Array, but some paths still reach for Buffer.
-// @ts-expect-error – augmenting global
 globalThis.Buffer = globalThis.Buffer ?? Buffer
 
 // Hermes ships TextEncoder/TextDecoder since RN 0.74; if your RN is older,

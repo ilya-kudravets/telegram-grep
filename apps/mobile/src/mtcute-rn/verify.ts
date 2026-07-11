@@ -1,3 +1,4 @@
+import type { ICryptoProvider } from '@mtcute/core/utils.js'
 import { createClient } from './adapter'
 import { RNCryptoProvider } from './crypto'
 
@@ -12,7 +13,7 @@ const beToBig = (u: Uint8Array) => u.reduce((acc, b) => (acc << 8n) | BigInt(b),
 export type Result = { name: string; ok: boolean; detail: string }
 
 export async function runSelfTest(): Promise<Result[]> {
-  const c = new RNCryptoProvider()
+  const c: ICryptoProvider = new RNCryptoProvider()
   await c.initialize?.()
   const out: Result[] = []
   // Each test isolated: a throw becomes a FAIL with its message, not a total abort.

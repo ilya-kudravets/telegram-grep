@@ -19,8 +19,8 @@ const dec = (key: Uint8Array) => (b: Uint8Array) => {
 // prevC/prevM or wrong xor order.
 function igeRef(block: (b: Uint8Array) => Uint8Array, iv: Uint8Array, data: Uint8Array, decrypt: boolean) {
   const xor = (a: Uint8Array, b: Uint8Array) => a.map((v, i) => v ^ b[i])
-  let prevC = iv.slice(0, 16)
-  let prevM = iv.slice(16, 32)
+  let prevC: Uint8Array = iv.slice(0, 16)
+  let prevM: Uint8Array = iv.slice(16, 32)
   const out = new Uint8Array(data.length)
   for (let i = 0; i < data.length; i += 16) {
     const blk = data.slice(i, i + 16)

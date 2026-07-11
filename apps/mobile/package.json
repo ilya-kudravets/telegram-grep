@@ -1,18 +1,22 @@
 {
-  "name": "tg-spike",
-  "version": "0.0.0",
+  "name": "@tg/mobile",
+  "version": "0.1.0",
   "private": true,
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "ios": "expo run:ios",
-    "android": "expo run:android"
+    "android": "expo run:android",
+    "start": "expo start"
   },
   "dependencies": {
     "@fuman/net": "*",
     "@fuman/utils": "*",
     "@mtcute/core": "^0.30.3",
+    "@mtcute/dispatcher": "^0.30.3",
+    "@tg/core": "workspace:*",
     "buffer": "^6.0.3",
     "expo": "~57.0.4",
+    "expo-sqlite": "~16.0.8",
     "pako": "^3.0.1",
     "react": "*",
     "react-native": "*",

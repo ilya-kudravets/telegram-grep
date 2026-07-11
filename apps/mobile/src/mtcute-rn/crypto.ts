@@ -1,5 +1,10 @@
-import type { IAesCtr, ICryptoProvider, IEncryptionScheme } from '@mtcute/core'
-import { BaseCryptoProvider } from '@mtcute/core/utils.js'
+// crypto interfaces live under /utils.js, not the @mtcute/core root
+import {
+  BaseCryptoProvider,
+  type IAesCtr,
+  type ICryptoProvider,
+  type IEncryptionScheme,
+} from '@mtcute/core/utils.js'
 import { createCipheriv, createDecipheriv, createHash, createHmac, pbkdf2, randomFillSync } from 'react-native-quick-crypto'
 import { deflate, inflate } from 'pako'
 import { igeWith } from './ige'
@@ -34,8 +39,8 @@ export class RNCryptoProvider extends BaseCryptoProvider implements ICryptoProvi
   }
   pbkdf2(password: Uint8Array, salt: Uint8Array, iterations: number, keylen = 64, algo = 'sha512') {
     return new Promise<Uint8Array>((resolve, reject) =>
-      pbkdf2(password, salt, iterations, keylen, algo, (err: unknown, buf: Uint8Array) =>
-        err ? reject(err) : resolve(new Uint8Array(buf)),
+      pbkdf2(password, salt, iterations, keylen, algo, (err: unknown, buf: Uint8Array | undefined) =>
+        err || !buf ? reject(err ?? new Error('pbkdf2 failed')) : resolve(new Uint8Array(buf)),
       ),
     )
   }
