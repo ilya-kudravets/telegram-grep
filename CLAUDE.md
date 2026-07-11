@@ -43,6 +43,21 @@ to discard mutants that don't compile. Reports land in `reports/mutation/` (giti
 - Only mark a mutant with `// Stryker disable next-line <Mutator>: <reason>` when it is **provably
   equivalent** (no test can observe the difference). Prefer a real test over a disable.
 
+## CI & releases
+
+`.github/workflows/`: `ci` (typecheck + `bun test` + `bun audit --prod`), `lint` (`biome ci`),
+`codeql`, and `release`. All but release cancel superseded runs via a `concurrency` group.
+
+Releases are driven by **release-please** — do **not** hand-tag or create GitHub releases:
+
+- Commit with **Conventional Commits**. Only `feat:` / `fix:` bump the version; `ci:` / `chore:` /
+  `build(deps):` / `docs:` land without a release. `feat!:` or a `BREAKING CHANGE:` footer bumps major.
+- On push to `main`, release-please maintains a version-bump PR (updates `package.json` + `CHANGELOG.md`).
+  Merging **that** PR tags `vX.Y.Z`, cuts the release, and the `build` job compiles the per-platform
+  `tg-client` binaries and attaches them. So a release needs a `feat:`/`fix:` since the last tag.
+- `.agents/skills/` is gitignored (vendored third-party docs, reconstructable from `skills-lock.json`) —
+  don't re-commit it. The project's own skill lives at `skills/telegram-grep-cli/`.
+
 ## Frontend
 
 Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
