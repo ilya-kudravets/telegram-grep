@@ -1,10 +1,19 @@
+import {
+  attachRealtime,
+  compilePattern,
+  createClient,
+  deleteEverywhere,
+  loadPatterns,
+  login,
+  onFlood,
+  openCache,
+  type SyncProgress,
+  searchCache,
+  syncAll,
+  t,
+} from '@tg/bun'
 import index from '../web/index.html'
 import { makeApi } from './api'
-import { createClient, login, onFlood, t } from './client'
-import { openCache } from './db'
-import { deleteEverywhere } from './deleter'
-import { compilePattern, loadPatterns, searchCache } from './search'
-import { attachRealtime, type SyncProgress, syncAll } from './sync'
 import { guardRoutes, loadOrCreateToken } from './webauth'
 
 const tg = createClient()

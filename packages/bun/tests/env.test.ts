@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { ensureEnvFile } from '../src/env'
+import { ensureEnvFile } from '@tg/bun'
 
 let dir: string
 let envPath: string

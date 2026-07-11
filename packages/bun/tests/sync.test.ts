@@ -1,15 +1,16 @@
 import { describe, expect, test } from 'bun:test'
-import { type Cache, openCache } from '../src/db'
 import {
   attachRealtime,
+  type Cache,
   floodWaitSeconds,
   type MsgLike,
+  openCache,
   type SyncClient,
   sleep,
   syncAll,
   syncChat,
   toCached,
-} from '../src/sync'
+} from '@tg/bun'
 
 const msg = (id: number, text: string, chatId = 1): MsgLike => ({
   id,

@@ -20,12 +20,28 @@
       "name": "@tg/cli",
       "version": "0.1.0",
       "dependencies": {
-        "@mtcute/bun": "^0.30.3",
-        "@mtcute/core": "^0.30.3",
         "@opentui/core": "^0.4.3",
+        "@tg/bun": "workspace:*",
+        "@tg/core": "workspace:*",
+      },
+    },
+    "apps/web": {
+      "name": "@tg/web",
+      "version": "0.1.0",
+      "dependencies": {
+        "@tg/bun": "workspace:*",
         "@tg/core": "workspace:*",
         "react": "^19.2.7",
         "react-dom": "^19.2.7",
+      },
+    },
+    "packages/bun": {
+      "name": "@tg/bun",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mtcute/bun": "^0.30.3",
+        "@mtcute/core": "^0.30.3",
+        "@tg/core": "workspace:*",
       },
     },
     "packages/core": {
@@ -218,9 +234,13 @@
 
     "@stryker-mutator/util": ["@stryker-mutator/util@9.6.1", "", {}, "sha512-Lk/ALVctJjFv1vvwR+CFoKzDCWvsBlq7flDUnmnpuwTrGbm156EdZD1Jjq4o8KdOap0ezUZqQNE9OAI1m2+pUQ=="],
 
+    "@tg/bun": ["@tg/bun@workspace:packages/bun"],
+
     "@tg/cli": ["@tg/cli@workspace:apps/cli"],
 
     "@tg/core": ["@tg/core@workspace:packages/core"],
+
+    "@tg/web": ["@tg/web@workspace:apps/web"],
 
     "@types/bun": ["@types/bun@1.3.14", "", { "dependencies": { "bun-types": "1.3.14" } }, "sha512-h1hFqFVcvAvD9j9K7ZW7vd82aSA+rTdznZa+5bwvCwqSB1jmmfLcbIWhOLx1/+boy/xmjgCs/OMUL8hRJSmnPw=="],
 

@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { type CachedMessage, openCache } from '../src/db'
+import { type CachedMessage, openCache } from '@tg/bun'
 
 const msg = (over: Partial<CachedMessage> = {}): CachedMessage => ({
   chat_id: 1,

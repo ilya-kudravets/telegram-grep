@@ -2,12 +2,18 @@
 // search/stats are offline (cache only, no Telegram connection); sync/delete
 // need an authenticated session (data/session or SESSION_STRING in .env).
 import { mkdirSync } from 'node:fs'
+import {
+  compilePattern,
+  createClient,
+  type DeleteTarget,
+  deleteEverywhere,
+  formatSyncLine,
+  login,
+  openCache,
+  searchCache,
+  syncAll,
+} from '@tg/bun'
 import pkg from '../../../package.json' // root manifest — release-please bumps this
-import { createClient, formatSyncLine, login } from './client'
-import { openCache } from './db'
-import { type DeleteTarget, deleteEverywhere } from './deleter'
-import { compilePattern, searchCache } from './search'
-import { syncAll } from './sync'
 
 const CACHE = 'data/cache.db'
 const out = (data: unknown) => process.stdout.write(`${JSON.stringify(data)}\n`)

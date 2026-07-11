@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test'
+import type { DeleteTarget, SearchRow } from '@tg/bun'
 import { makeApi } from '../src/api'
-import type { SearchRow } from '../src/db'
-import type { DeleteTarget } from '../src/deleter'
 
 const row: SearchRow = {
   chat_id: 1,

@@ -2,8 +2,14 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { type CachedMessage, openCache } from '../src/db'
-import { compilePattern, loadPatterns, searchCache, watchPatterns } from '../src/search'
+import {
+  type CachedMessage,
+  compilePattern,
+  loadPatterns,
+  openCache,
+  searchCache,
+  watchPatterns,
+} from '@tg/bun'
 
 describe('compilePattern', () => {
   test('plain string is case-insensitive', () => {

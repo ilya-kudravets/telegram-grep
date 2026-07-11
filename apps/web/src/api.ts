@@ -1,5 +1,4 @@
-import type { SearchRow } from './db'
-import type { DeleteResult, DeleteTarget } from './deleter'
+import type { DeleteResult, DeleteTarget, SearchRow } from '@tg/bun'
 
 export interface ApiDeps {
   // null → invalid pattern

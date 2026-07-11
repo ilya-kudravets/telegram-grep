@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
+import { formatSyncLine } from '@tg/bun'
 import type { SyncProgress } from '@tg/core/sync'
-import { formatSyncLine } from '../src/client'
 
 test('formats a normal progress line with the bar filled proportionally', () => {
   const p: SyncProgress = {

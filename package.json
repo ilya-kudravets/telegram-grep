@@ -17,7 +17,7 @@
   },
   "scripts": {
     "start": "bun run apps/cli/src/index.ts",
-    "web": "bun run apps/cli/src/server.ts",
+    "web": "bun run apps/web/src/server.ts",
     "test": "bun test",
     "test:mutation": "stryker run",
     "typecheck": "tsc --noEmit",

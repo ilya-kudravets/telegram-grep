@@ -5,11 +5,8 @@
   "type": "module",
   "module": "src/index.ts",
   "dependencies": {
-    "@mtcute/bun": "^0.30.3",
-    "@mtcute/core": "^0.30.3",
     "@opentui/core": "^0.4.3",
-    "@tg/core": "workspace:*",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "@tg/bun": "workspace:*",
+    "@tg/core": "workspace:*"
   }
 }

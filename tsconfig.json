@@ -14,7 +14,8 @@
     "baseUrl": ".",
     "paths": {
       "@tg/core": ["./packages/core/src/index.ts"],
-      "@tg/core/*": ["./packages/core/src/*"]
+      "@tg/core/*": ["./packages/core/src/*"],
+      "@tg/bun": ["./packages/bun/src/index.ts"]
     },
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,

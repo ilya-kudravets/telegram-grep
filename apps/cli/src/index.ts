@@ -1,10 +1,20 @@
+import {
+  attachRealtime,
+  compilePattern,
+  createClient,
+  deleteEverywhere,
+  ensureEnvFile,
+  formatSyncLine,
+  loadPatterns,
+  login,
+  onFlood,
+  openCache,
+  searchCache,
+  syncAll,
+  t,
+  watchPatterns,
+} from '@tg/bun'
 import { runCli } from './cli'
-import { createClient, formatSyncLine, login, onFlood, t } from './client'
-import { openCache } from './db'
-import { deleteEverywhere } from './deleter'
-import { ensureEnvFile } from './env'
-import { compilePattern, loadPatterns, searchCache, watchPatterns } from './search'
-import { attachRealtime, syncAll } from './sync'
 
 // Headless CLI for AI agents: any subcommand runs and exits without the TUI.
 // `tui` (or no args) falls through to the interactive client below.

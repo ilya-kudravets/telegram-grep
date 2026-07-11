@@ -17,14 +17,21 @@ cwd stays the root, so `.env` and `data/` live there.
 - `packages/core/` (`@tg/core`) — the **portable domain**: message-cache port (`cache.ts`), regex
   search, history sync, delete-everywhere, and shared i18n. No platform code (no Bun, no `fs`).
   Subpath exports mirror files: import `@tg/core/sync`, `@tg/core/cache`, `@tg/core/i18n`, …
-- `apps/cli/` (`@tg/cli`) — the Bun TUI/CLI/web frontend (`src/`, `web/`, `tests/`). Owns the
-  platform adapters (`adapters/bun-sqlite.ts` = the `Cache` port on `bun:sqlite`, `patterns-fs.ts`).
-  The `src/{db,search,sync,deleter}.ts` barrels re-export `@tg/core` + the local adapter.
+- `packages/bun/` (`@tg/bun`) — the **Bun platform layer** shared by both apps: the `bun:sqlite`
+  `Cache` adapter + `patterns.txt` loader (`adapters/`, surfaced via the `db`/`search` barrels),
+  the `@mtcute/bun` client + interactive `login` (`client.ts`), and `.env` bootstrap (`env.ts`).
+  Single `@tg/bun` barrel; it also re-exports `@tg/core`'s sync/delete so apps have one import.
+- `apps/cli/` (`@tg/cli`) — the TUI + headless JSON CLI (`index.ts`, `cli.ts`, `tui.ts`).
+  Deps: `@tg/bun` + `@tg/core` + `@opentui/core`.
+- `apps/web/` (`@tg/web`) — the `Bun.serve` server (`server.ts`, `api.ts`, `webauth.ts`) + the
+  browser bundle (`web/`). Deps: `@tg/bun` + `@tg/core` + `react`/`react-dom`.
 - `spike-rn/` — the React Native / Expo mtcute adapter (not yet a workspace member; see the
   `mtcute-react-native` skill). Excluded from the root `tsconfig`/biome/stryker.
 
-Root scripts drive the whole repo: `bun start` / `bun run web` / `bun run build` target
-`apps/cli`; the compiled binary reads its version from the **root** `package.json`.
+Root scripts drive the whole repo: `bun start` → `apps/cli`, `bun run web` → `apps/web`,
+`bun run build` compiles the `apps/cli` binary (which reads its version from the **root**
+`package.json`). Tests live beside their package (`packages/*/tests`, `apps/*/tests`); `bun test`
+and Stryker discover them repo-wide regardless of location.
 
 ## APIs
 
