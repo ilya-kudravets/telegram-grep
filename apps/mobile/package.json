@@ -16,7 +16,7 @@
     "@tg/core": "workspace:*",
     "buffer": "^6.0.3",
     "expo": "~57.0.4",
-    "expo-sqlite": "~16.0.8",
+    "expo-sqlite": "~57.0.0",
     "pako": "^3.0.1",
     "react": "*",
     "react-native": "*",
