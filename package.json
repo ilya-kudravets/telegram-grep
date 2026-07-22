@@ -16,8 +16,8 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@mtcute/bun": "^0.30.3",
-    "@mtcute/dispatcher": "^0.30.3",
+    "@mtcute/bun": "^0.31.0",
+    "@mtcute/dispatcher": "^0.31.0",
     "@opentui/core": "^0.4.3",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
