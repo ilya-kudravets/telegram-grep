@@ -35,6 +35,10 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # vendored AI skill docs — reconstructable from skills-lock.json
 .agents/skills/
+.claude/skills/
+
+# personal Claude Code settings
+.claude/settings.local.json
 
 # telegram-client
 data/
