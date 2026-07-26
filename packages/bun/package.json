@@ -6,8 +6,8 @@
   "main": "src/index.ts",
   "exports": { ".": "./src/index.ts" },
   "dependencies": {
-    "@mtcute/bun": "^0.30.3",
-    "@mtcute/core": "^0.30.3",
+    "@mtcute/bun": "^0.31.0",
+    "@mtcute/core": "^0.31.0",
     "@tg/core": "workspace:*"
   }
 }
