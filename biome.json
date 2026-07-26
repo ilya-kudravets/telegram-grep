@@ -1,7 +1,16 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.3/schema.json",
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
-  "files": { "includes": ["src/**", "web/**", "tests/**"] },
+  "files": {
+    "includes": [
+      "packages/*/src/**",
+      "packages/*/tests/**",
+      "apps/*/src/**",
+      "apps/*/web/**",
+      "apps/*/tests/**",
+      "!apps/mobile"
+    ]
+  },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
   "linter": {
     "enabled": true,

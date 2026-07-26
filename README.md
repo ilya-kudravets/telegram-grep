@@ -56,7 +56,7 @@ Locally: `bun run typecheck`, `bun run lint` (`bun run format` to autofix), `bun
 
 ## Language
 
-The UI follows the system language (ru/en); translations live in `src/locales/*.ts`. To override:
+The UI follows the system language (ru/en); translations live in `packages/core/src/locales/*.ts`. To override:
 - TUI/CLI: `TG_LANG=en bun start` (or `ru`).
 - Web: the dropdown next to the search box (persisted in the browser).
 

@@ -1,0 +1,13 @@
+{
+  "name": "@tg/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "module": "src/server.ts",
+  "dependencies": {
+    "@tg/bun": "workspace:*",
+    "@tg/core": "workspace:*",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  }
+}
