@@ -4,8 +4,13 @@
   "type": "module",
   "private": true,
   "workspaces": ["packages/*", "apps/*"],
+  "//overrides": "Both are in-range patch bumps their parents already allow; bun just won't re-resolve a transitive pin on its own. Drop an entry once expo/stryker ship a lockfile past it.",
+  "overrides": {
+    "brace-expansion": "^5.0.8",
+    "postcss": "^8.5.23"
+  },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.3",
+    "@biomejs/biome": "^2.5.5",
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/typescript-checker": "^9.6.1",
     "@types/bun": "latest",
@@ -13,7 +18,7 @@
     "@types/react-dom": "^19.2.3"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   },
   "scripts": {
     "start": "bun run apps/cli/src/index.ts",
