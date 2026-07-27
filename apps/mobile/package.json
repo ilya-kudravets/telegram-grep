@@ -11,8 +11,8 @@
   "dependencies": {
     "@fuman/net": "*",
     "@fuman/utils": "*",
-    "@mtcute/core": "^0.30.3",
-    "@mtcute/dispatcher": "^0.30.3",
+    "@mtcute/core": "^0.31.0",
+    "@mtcute/dispatcher": "^0.31.0",
     "@tg/core": "workspace:*",
     "buffer": "^6.0.3",
     "expo": "~57.0.4",
