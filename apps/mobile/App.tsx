@@ -41,7 +41,15 @@ function palette(dark: boolean) {
 }
 type Theme = ReturnType<typeof palette>
 
-function Section({ theme, title, children }: { theme: Theme; title: string; children: ReactNode[] }) {
+function Section({
+  theme,
+  title,
+  children,
+}: {
+  theme: Theme
+  title: string
+  children: ReactNode[]
+}) {
   const rows = children.filter(Boolean)
   if (!rows.length) return null
   return (
@@ -52,7 +60,9 @@ function Section({ theme, title, children }: { theme: Theme; title: string; chil
           // biome-ignore lint/suspicious/noArrayIndexKey: fixed-order presentational rows
           <View key={i}>
             {row}
-            {i < rows.length - 1 ? <View style={[s.separator, { backgroundColor: theme.separator }]} /> : null}
+            {i < rows.length - 1 ? (
+              <View style={[s.separator, { backgroundColor: theme.separator }]} />
+            ) : null}
           </View>
         ))}
       </View>
@@ -132,11 +142,15 @@ export default function App() {
 
   // open the cache (offline-ready: search works with no connection), create the
   // client, then try a silent reconnect from the persisted session.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: run-once boot; connect closes over stable refs
   useEffect(() => {
     const cache = openCache()
     cacheRef.current = cache
     setCount(cache.count())
-    const tg = createClient(Number(process.env.EXPO_PUBLIC_API_ID), process.env.EXPO_PUBLIC_API_HASH ?? '')
+    const tg = createClient(
+      Number(process.env.EXPO_PUBLIC_API_ID),
+      process.env.EXPO_PUBLIC_API_HASH ?? '',
+    )
     tgRef.current = tg
     const saved = cache.getSession()
     if (saved) {
@@ -144,7 +158,6 @@ export default function App() {
         .then(() => connect(false))
         .catch(() => {})
     }
-    // biome-ignore lint/correctness/useExhaustiveDependencies: run-once boot; connect closes over stable refs
   }, [])
 
   async function sync() {
@@ -187,7 +200,9 @@ export default function App() {
   }
 
   const syncing = progress !== null
-  const syncPct = progress?.chatsTotal ? Math.round((progress.chatsDone / progress.chatsTotal) * 100) : 0
+  const syncPct = progress?.chatsTotal
+    ? Math.round((progress.chatsDone / progress.chatsTotal) * 100)
+    : 0
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
@@ -264,7 +279,9 @@ export default function App() {
         keyExtractor={(r) => `${r.chat_id}:${r.id}`}
         contentContainerStyle={{ padding: 16, paddingTop: 4 }}
         keyboardShouldPersistTaps="handled"
-        ItemSeparatorComponent={() => <View style={[s.separator, { backgroundColor: theme.separator }]} />}
+        ItemSeparatorComponent={() => (
+          <View style={[s.separator, { backgroundColor: theme.separator }]} />
+        )}
         renderItem={({ item }) => (
           <Pressable
             onLongPress={() => confirmDelete(item)}
@@ -300,15 +317,39 @@ export default function App() {
 }
 
 const s = StyleSheet.create({
-  largeTitle: { fontSize: 34, fontWeight: '700', letterSpacing: -0.4, marginBottom: 12, marginTop: 4 },
-  sectionHeader: { fontSize: 13, fontWeight: '400', marginLeft: 16, marginBottom: 7, letterSpacing: 0.3 },
+  largeTitle: {
+    fontSize: 34,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+    marginBottom: 12,
+    marginTop: 4,
+  },
+  sectionHeader: {
+    fontSize: 13,
+    fontWeight: '400',
+    marginLeft: 16,
+    marginBottom: 7,
+    letterSpacing: 0.3,
+  },
   card: { borderRadius: 12, overflow: 'hidden' },
   searchField: { borderRadius: 10, paddingHorizontal: 12, height: 38, justifyContent: 'center' },
   searchInput: { fontSize: 17, padding: 0 },
-  toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
+  toolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
   meta: { fontSize: 13, flexShrink: 1 },
   action: { fontSize: 17, fontWeight: '600' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, minHeight: 44, paddingVertical: 11 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    minHeight: 44,
+    paddingVertical: 11,
+  },
   center: { justifyContent: 'center' },
   separator: { height: StyleSheet.hairlineWidth },
   rowText: { flex: 1, fontSize: 17 },

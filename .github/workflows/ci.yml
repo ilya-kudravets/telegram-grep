@@ -28,6 +28,11 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
+      # apps/mobile is excluded from the root tsconfig (own RN toolchain), so the
+      # root typecheck above never sees it — check it on its own, like `make check` does.
+      - name: Typecheck apps/mobile
+        run: bunx tsc --noEmit
+        working-directory: apps/mobile
       - run: bun test
 
   audit:

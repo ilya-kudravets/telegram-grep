@@ -1,6 +1,10 @@
-// MUST be imported first, before anything touches crypto/Buffer.
-import { install } from 'react-native-quick-crypto'
+// This MODULE must be imported first (see App.tsx) — everything below patches globals
+// that mtcute reads at import time. The order of the two imports here does not matter:
+// `buffer` is a pure class definition with no module-scope global/crypto access, so
+// biome is free to sort them. What is load-bearing is that install() runs before any
+// code touches global.crypto, which the statement order below guarantees.
 import { Buffer } from 'buffer'
+import { install } from 'react-native-quick-crypto'
 
 install() // sets global.crypto (getRandomValues, subtle) backed by native OpenSSL
 
@@ -11,6 +15,7 @@ globalThis.Buffer = globalThis.Buffer ?? Buffer
 // VERIFY and add `text-encoding` here.
 
 // mtcute's flood-control uses performance.now(); Hermes has no performance.now.
+// biome-ignore lint/suspicious/noExplicitAny: patching host globals Hermes ships incomplete; a narrower type would be a cast pretending to be a contract
 const g = globalThis as any
 if (!g.performance) g.performance = {}
 if (typeof g.performance.now !== 'function') g.performance.now = () => Date.now()

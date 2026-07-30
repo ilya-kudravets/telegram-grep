@@ -1,9 +1,9 @@
+import { connectWs } from '@fuman/net'
 import type { ICorePlatform, IPacketCodec, TelegramTransport } from '@mtcute/core'
-import type { BasicDcOption } from '@mtcute/core/utils.js'
 import { IntermediatePacketCodec, MemoryStorage, ObfuscatedPacketCodec } from '@mtcute/core'
 // BaseTelegramClient/TelegramClient live in /client.js, NOT the root (root → undefined).
 import { BaseTelegramClient, TelegramClient } from '@mtcute/core/client.js'
-import { connectWs } from '@fuman/net'
+import type { BasicDcOption } from '@mtcute/core/utils.js'
 import { Platform } from 'react-native'
 import { RNCryptoProvider } from './crypto'
 
@@ -25,7 +25,13 @@ class RNPlatform implements ICorePlatform {
 
 // WebSocket transport (raw TCP can skip obfuscation; WS to Telegram requires it).
 // Verified: connects to a real DC and completes the MTProto auth-key handshake in RN.
-const SUBDOMAIN: Record<number, string> = { 1: 'pluto', 2: 'venus', 3: 'aurora', 4: 'vesta', 5: 'flora' }
+const SUBDOMAIN: Record<number, string> = {
+  1: 'pluto',
+  2: 'venus',
+  3: 'aurora',
+  4: 'vesta',
+  5: 'flora',
+}
 class WebSocketTransport implements TelegramTransport {
   async connect(dc: BasicDcOption) {
     const sub = SUBDOMAIN[dc.id] ?? 'venus'
