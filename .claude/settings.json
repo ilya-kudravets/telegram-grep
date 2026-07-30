@@ -2,15 +2,39 @@
   "permissions": {
     "allow": [
       "Bash(bun *)",
+      "Bash(docker compose ps *)",
       "Bash(make *)",
       "Bash(node *)",
       "Bash(npm *)",
       "Bash(npx *)",
+      "Bash(xcrun simctl list *)",
       "Edit",
       "MultiEdit",
       "NotebookEdit",
       "Read",
-      "Write"
+      "Write",
+      "mcp__codebase-memory-mcp__get_code_snippet",
+      "mcp__codebase-memory-mcp__search_graph",
+      "mcp__codebase-memory-mcp__trace_path",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot"
+    ],
+    "deny": [
+      "Read(data/**)",
+      "Read(apps/mobile/.env)",
+      "Read(dist/**)",
+      "Read(out/**)",
+      "Read(coverage/**)",
+      "Read(reports/**)",
+      "Read(.stryker-tmp/**)",
+      "Read(apps/mobile/.expo/**)",
+      "Read(apps/mobile/ios/**)",
+      "Read(apps/mobile/android/**)",
+      "Read(.playwright-mcp/**)",
+      "Read(**/*.db)",
+      "Read(**/*.db-wal)",
+      "Read(**/*.db-shm)",
+      "Read(**/.DS_Store)"
     ]
   }
 }
