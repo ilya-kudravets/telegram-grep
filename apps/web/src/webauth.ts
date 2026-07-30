@@ -20,23 +20,34 @@ export function loadOrCreateToken(path: string): string {
 const unauthorized = () => new Response('unauthorized', { status: 401 })
 const forbidden = () => new Response('forbidden', { status: 403 })
 
+// Origin (when present) must match Host. Defense-in-depth against drive-by CSRF: a
+// cross-site page can't read the token from our origin's localStorage, but we reject a
+// mismatched Origin anyway. Matters more for WebSockets, which are NOT subject to CORS —
+// any page may open a socket to us, so Origin is the only browser-supplied signal.
+function checkOrigin(req: Request): Response | null {
+  const origin = req.headers.get('origin')
+  if (!origin) return null
+  let host: string
+  try {
+    host = new URL(origin).host
+  } catch {
+    return forbidden()
+  }
+  return host === req.headers.get('host') ? null : forbidden()
+}
+
 // Returns null when the request may proceed, or a rejecting Response.
-// Bearer token gates every call; Origin check is defense-in-depth against drive-by CSRF
-// (a cross-site page can't read the token from our origin's localStorage, and a custom
-// Authorization header would fail CORS preflight — but we reject a mismatched Origin anyway).
 export function checkAuth(req: Request, token: string): Response | null {
   if (req.headers.get('authorization') !== `Bearer ${token}`) return unauthorized()
-  const origin = req.headers.get('origin')
-  if (origin) {
-    let host: string
-    try {
-      host = new URL(origin).host
-    } catch {
-      return forbidden()
-    }
-    if (host !== req.headers.get('host')) return forbidden()
-  }
-  return null
+  return checkOrigin(req)
+}
+
+// The WebSocket handshake carries the same secret, but in the query string: the browser
+// WebSocket API cannot set request headers, so Authorization is not available there.
+// Same token, same Origin check — only the transport differs.
+export function checkWsAuth(req: Request, token: string): Response | null {
+  if (new URL(req.url).searchParams.get('token') !== token) return unauthorized()
+  return checkOrigin(req)
 }
 
 // Wrap every API route handler so it requires auth before running.

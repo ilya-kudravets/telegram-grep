@@ -17,12 +17,16 @@ export async function runSelfTest(): Promise<Result[]> {
   await c.initialize?.()
   const out: Result[] = []
   // Each test isolated: a throw becomes a FAIL with its message, not a total abort.
-  const test = async (name: string, fn: () => boolean | Promise<boolean>, detail?: () => string) => {
+  const test = async (
+    name: string,
+    fn: () => boolean | Promise<boolean>,
+    detail?: () => string,
+  ) => {
     try {
       const ok = await fn()
       out.push({ name, ok, detail: ok ? '' : (detail?.() ?? '') })
-    } catch (e: any) {
-      out.push({ name, ok: false, detail: `threw: ${e?.message ?? e}` })
+    } catch (e) {
+      out.push({ name, ok: false, detail: `threw: ${e instanceof Error ? e.message : String(e)}` })
     }
   }
 
@@ -33,7 +37,9 @@ export async function runSelfTest(): Promise<Result[]> {
   )
   await test(
     'sha256("abc")',
-    () => hex(c.sha256(enc.encode('abc'))) === 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    () =>
+      hex(c.sha256(enc.encode('abc'))) ===
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
     () => hex(c.sha256(enc.encode('abc'))),
   )
   await test('hmacSha256 (RFC4231 #1)', async () => {
@@ -89,15 +95,21 @@ export async function probeTelegram(): Promise<string> {
   const apiHash = process.env.EXPO_PUBLIC_API_HASH || '0123456789abcdef0123456789abcdef'
   const tg = createClient(apiId, apiHash)
   try {
-    const cfg: any = await tg.call({ _: 'help.getConfig' })
+    const cfg = (await tg.call({ _: 'help.getConfig' })) as {
+      thisDc?: number
+      dcOptions?: unknown[]
+    }
     return `handshake+RPC OK — thisDc=${cfg?.thisDc}, dcOptions=${cfg?.dcOptions?.length}`
-  } catch (e: any) {
-    const name = e?.constructor?.name ?? 'Error'
-    const proven = /Rpc|API_ID|AUTH_KEY|CONNECTION_/i.test(`${name} ${e?.message}`)
-    return `${proven ? 'handshake OK (encrypted reply)' : 'FAILED'}: ${name} ${e?.message ?? e}`
+  } catch (e) {
+    const name = e instanceof Error ? e.constructor.name : 'Error'
+    const message = e instanceof Error ? e.message : String(e)
+    const proven = /Rpc|API_ID|AUTH_KEY|CONNECTION_/i.test(`${name} ${message}`)
+    return `${proven ? 'handshake OK (encrypted reply)' : 'FAILED'}: ${name} ${message}`
   } finally {
+    // was `(tg as any).close?.()` — there is no close(); optional chaining made it a
+    // silent no-op and the probe leaked its connection. destroy() is the real method.
     try {
-      await (tg as any).close?.()
+      await tg.destroy()
     } catch {}
   }
 }

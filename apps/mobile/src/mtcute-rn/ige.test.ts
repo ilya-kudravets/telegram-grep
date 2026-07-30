@@ -1,5 +1,5 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import { expect, test } from 'bun:test'
+import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import { igeWith } from './ige'
 
 // one 16-byte AES-256 block, fresh cipher per call (test-only; simple & correct)
@@ -17,7 +17,12 @@ const dec = (key: Uint8Array) => (b: Uint8Array) => {
 // Independent reference IGE (plain arrays, no subarray/pointer reuse) — must
 // agree with igeWith(). Catches the likely transcription bug: swapped
 // prevC/prevM or wrong xor order.
-function igeRef(block: (b: Uint8Array) => Uint8Array, iv: Uint8Array, data: Uint8Array, decrypt: boolean) {
+function igeRef(
+  block: (b: Uint8Array) => Uint8Array,
+  iv: Uint8Array,
+  data: Uint8Array,
+  decrypt: boolean,
+) {
   const xor = (a: Uint8Array, b: Uint8Array) => a.map((v, i) => v ^ b[i])
   let prevC: Uint8Array = iv.slice(0, 16)
   let prevM: Uint8Array = iv.slice(16, 32)

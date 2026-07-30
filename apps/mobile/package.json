@@ -9,8 +9,8 @@
     "start": "expo start"
   },
   "dependencies": {
-    "@fuman/net": "*",
-    "@fuman/utils": "*",
+    "@fuman/net": "^0.0.20",
+    "@fuman/utils": "^0.0.20",
     "@mtcute/core": "^0.31.0",
     "@mtcute/dispatcher": "^0.31.0",
     "@tg/core": "workspace:*",
@@ -18,8 +18,8 @@
     "expo": "~57.0.4",
     "expo-sqlite": "~57.0.0",
     "pako": "^3.0.1",
-    "react": "*",
-    "react-native": "*",
+    "react": "19.2.3",
+    "react-native": "0.86.0",
     "react-native-nitro-modules": "^0.36.1",
     "react-native-quick-crypto": "^1.1.5"
   },

@@ -2,6 +2,8 @@
 // Sibling of packages/bun's bun-sqlite adapter — same SCHEMA_SQL/SQL from
 // @tg/core/cache, so the schema and queries stay identical across platforms.
 // expo-sqlite's *Sync API matches the synchronous Cache port 1:1.
+
+import { toggleChannelIdMark } from '@mtcute/core/utils.js'
 import {
   type Cache,
   type CachedMessage,
@@ -11,7 +13,6 @@ import {
   type SearchRow,
   SQL,
 } from '@tg/core/cache'
-import { toggleChannelIdMark } from '@mtcute/core/utils.js'
 import * as SQLite from 'expo-sqlite'
 
 // mtcute auth is persisted as an exported session string in a tiny kv table in the
@@ -52,7 +53,9 @@ export function openCache(name = 'tg-cache.db'): MobileCache {
       if (msgId > 0) db.runSync(SQL.bumpLastMsgId, [chatId, msgId])
     },
     backfillState(chatId: number): { oldestId: number; backfilled: boolean } {
-      const r = db.getFirstSync<{ oldest_id: number; backfilled: number }>(SQL.backfillState, [chatId])
+      const r = db.getFirstSync<{ oldest_id: number; backfilled: number }>(SQL.backfillState, [
+        chatId,
+      ])
       return { oldestId: r?.oldest_id ?? 0, backfilled: !!r?.backfilled }
     },
     setOldestId(chatId: number, id: number) {
@@ -84,7 +87,10 @@ export function openCache(name = 'tg-cache.db'): MobileCache {
           ...ids,
         ])
       } else {
-        db.runSync(`delete from messages where chat_id > ? and id in (${ph})`, [MIN_CHANNEL_MARKED, ...ids])
+        db.runSync(`delete from messages where chat_id > ? and id in (${ph})`, [
+          MIN_CHANNEL_MARKED,
+          ...ids,
+        ])
       }
     },
     iterAll(): IterableIterator<SearchRow> {
@@ -98,9 +104,10 @@ export function openCache(name = 'tg-cache.db'): MobileCache {
       return db.getFirstSync<{ v: string }>(`select v from kv where k = 'session'`)?.v ?? null
     },
     setSession(session: string) {
-      db.runSync(`insert into kv (k, v) values ('session', ?) on conflict(k) do update set v = excluded.v`, [
-        session,
-      ])
+      db.runSync(
+        `insert into kv (k, v) values ('session', ?) on conflict(k) do update set v = excluded.v`,
+        [session],
+      )
     },
     close() {
       insertMsgStmt.finalizeSync()

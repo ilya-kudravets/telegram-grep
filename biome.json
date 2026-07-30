@@ -8,7 +8,10 @@
       "apps/*/src/**",
       "apps/*/web/**",
       "apps/*/tests/**",
-      "!apps/mobile"
+      "apps/mobile/App.tsx",
+      "!apps/mobile/ios",
+      "!apps/mobile/android",
+      "!apps/mobile/.expo"
     ]
   },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },

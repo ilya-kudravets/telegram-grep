@@ -93,6 +93,14 @@ function App() {
     setMarked(new Set())
   }
 
+  // Latest-render refs: the socket effect below must NOT re-subscribe on every keystroke,
+  // so it reads the current query and search fn through refs instead of deps.
+  const qRef = useRef(q)
+  qRef.current = q
+  const runSearchRef = useRef(runSearch)
+  runSearchRef.current = runSearch
+  const researchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
   // debounce поиска по мере ввода
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-run only when the query changes
   useEffect(() => {
@@ -100,23 +108,42 @@ function App() {
     return () => clearTimeout(timer)
   }, [q])
 
-  // статус + realtime: кэш вырос — повторяем активный поиск
-  // biome-ignore lint/correctness/useExhaustiveDependencies: re-run only when the query changes
+  // Статус приходит push-ом по WebSocket — сервер шлёт снимок при подключении и дальше
+  // на каждое изменение (sync, realtime, flood-wait). Опроса нет.
   useEffect(() => {
-    const timer = setInterval(async () => {
-      try {
-        const s = (await (await apiFetch('/api/status')).json()) as Status
+    let ws: WebSocket | null = null
+    let retry: ReturnType<typeof setTimeout> | undefined
+    let stopped = false
+
+    const connect = () => {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
+      ws = new WebSocket(`${proto}//${location.host}/ws?token=${encodeURIComponent(TOKEN)}`)
+      ws.onmessage = (ev) => {
+        const s = JSON.parse(ev.data as string) as Status
         setStatus(s)
-        if (s.cached !== lastCached.current) {
-          lastCached.current = s.cached
-          if (q.trim()) runSearch(q)
-        }
-      } catch {
-        /* сервер перезапускается — молча ждём */
+        if (s.cached === lastCached.current) return
+        lastCached.current = s.cached
+        // Кэш вырос — повторяем активный поиск. Дебаунс, чтобы догоняющий поток
+        // апдейтов не превратился в запрос на каждое сообщение.
+        if (!qRef.current.trim()) return
+        clearTimeout(researchTimer.current)
+        researchTimer.current = setTimeout(() => runSearchRef.current(qRef.current), 300)
       }
-    }, 2000)
-    return () => clearInterval(timer)
-  }, [q])
+      // сервер перезапускается (bun --hot) — молча переподключаемся
+      ws.onclose = () => {
+        if (!stopped) retry = setTimeout(connect, 1000)
+      }
+      ws.onerror = () => ws?.close()
+    }
+    connect()
+
+    return () => {
+      stopped = true
+      clearTimeout(retry)
+      clearTimeout(researchTimer.current)
+      ws?.close()
+    }
+  }, [])
 
   function toggle(k: string) {
     setMarked((m) => {
