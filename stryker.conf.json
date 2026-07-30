@@ -6,9 +6,19 @@
   "plugins": ["@stryker-mutator/typescript-checker"],
   "tsconfigFile": "tsconfig.json",
   "coverageAnalysis": "off",
-  "ignorePatterns": ["apps/mobile", "apps/web/web", "data", "reports", "dist"],
+  "//ignorePatterns": ".claude/.agents hold symlinked, gitignored AI-skill docs — copying them into the sandbox is pointless and fails with ENOTSUP on a symlink",
+  "ignorePatterns": [
+    "apps/mobile",
+    "apps/web/web",
+    "data",
+    "reports",
+    "dist",
+    ".claude",
+    ".agents"
+  ],
   "mutate": [
     "apps/web/src/api.ts",
+    "apps/web/src/live.ts",
     "packages/bun/src/adapters/bun-sqlite.ts",
     "packages/bun/src/adapters/patterns-fs.ts",
     "packages/core/src/cache.ts",
