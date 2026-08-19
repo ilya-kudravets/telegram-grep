@@ -5,7 +5,7 @@
   "type": "module",
   "module": "src/index.ts",
   "dependencies": {
-    "@opentui/core": "^0.4.3",
+    "@opentui/core": "^0.5.3",
     "@tg/bun": "workspace:*",
     "@tg/core": "workspace:*"
   }
