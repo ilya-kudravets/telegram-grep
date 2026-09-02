@@ -87,6 +87,9 @@ Telegram straight from the tab (`@mtcute/web`), and keeps the cache in IndexedDB
 - Caveat, stated plainly: encryption at rest protects the session from someone reading the
   browser's storage, **not** from script running in the page while it is unlocked. No browser
   client can protect against that. Host your own copy if you don't want to trust someone else's.
+- mtcute's wasm crypto blob is imported as a bundled asset (`with { type: 'file' }`), because
+  its own `new URL('./mtcute.wasm', import.meta.url)` points into the bundle's directory after
+  bundling — a 404 that shows up as a WebAssembly "expected magic word" error.
 - The self-hosted server path (below) is unchanged — both entries ship, and the search/delete UI
   is literally the same component with a different data layer injected.
 

@@ -108,9 +108,10 @@ function Gate() {
       if (session === null) throw new Error(t('wrongPassphrase'))
       // A session that no longer authorizes is not a dead end: the restored cache is
       // still searchable, so the UI opens with an offline notice and a login button.
-      setConnected((await client.current!.resume(session)) ?? '')
+      const user = (await client.current!.resume(session)) ?? ''
+      setConnected(user)
       setPhase('ready')
-      client.current!.sync()
+      if (user) client.current!.sync() // syncing while unauthorized would only report its failure
     })
 
   const seal = (form: HTMLFormElement) =>
@@ -145,7 +146,15 @@ function Gate() {
             {t('syncBtn')}
           </button>
           {!connected && (
-            <button type="button" onClick={startLogin} disabled={busy}>
+            <button
+              type="button"
+              // back to the gate first: the phone/code prompts render there, not here
+              onClick={(e) => {
+                setPhase('login')
+                startLogin(e)
+              }}
+              disabled={busy}
+            >
               {t('loginTitle')}
             </button>
           )}

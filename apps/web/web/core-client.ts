@@ -5,7 +5,8 @@
 // mtcute's own storage would write the session in the clear, so this uses MemoryStorage
 // and owns persistence itself: `exportSession()` after a login, sealed under the user's
 // passphrase (crypto.ts) before it ever reaches IndexedDB.
-import { MemoryStorage, TelegramClient } from '@mtcute/web'
+import wasmUrl from '@mtcute/wasm/mtcute.wasm' with { type: 'file' }
+import { MemoryStorage, TelegramClient, WebCryptoProvider } from '@mtcute/web'
 import { createMemoryCache } from '@tg/core/cache-memory'
 import { deleteEverywhere } from '@tg/core/deleter'
 import { compilePattern, searchCache } from '@tg/core/search'
@@ -39,6 +40,11 @@ export async function createBrowserClient(creds: AppCreds): Promise<BrowserClien
     apiId: creds.apiId,
     apiHash: creds.apiHash,
     storage: new MemoryStorage(),
+    // mtcute fetches its wasm blob from `new URL('./mtcute.wasm', import.meta.url)`,
+    // which after bundling points at the bundle's own directory — a 404 that surfaces
+    // as "expected magic word". Import it as an asset instead, so the bundler emits it
+    // and hands us the URL it actually lives at.
+    crypto: new WebCryptoProvider({ wasmInput: wasmUrl }),
   })
   tg.log.mgr.level = 1 // errors only; the default chats about every update in the console
 

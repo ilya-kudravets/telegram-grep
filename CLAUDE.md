@@ -28,7 +28,9 @@ cwd stays the root, so `.env` and `data/` live there.
   (search / delete / status subscription), so a UI change lands in both. The static entry keeps
   credentials, the cache snapshot and the passphrase-sealed session in IndexedDB (`store.ts` +
   `crypto.ts`); mtcute's own storage is deliberately unused (it writes the session in plaintext),
-  hence `MemoryStorage` + `exportSession`/`importSession`. `make pages` builds it
+  hence `MemoryStorage` + `exportSession`/`importSession`. mtcute's wasm crypto blob must be
+  handed in explicitly (`WebCryptoProvider({ wasmInput })` from a `with { type: 'file' }`
+  import) — its own `import.meta.url` lookup 404s once bundled. `make pages` builds it
   (`--public-path=./`, so a project-page subpath works); `make serve-pages` proves that.
 
 Root scripts drive the whole repo. `bun run build` compiles the `apps/cli` binary, which reads its

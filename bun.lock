@@ -29,6 +29,7 @@
       "name": "@tg/web",
       "version": "0.1.0",
       "dependencies": {
+        "@mtcute/wasm": "^0.32.0",
         "@mtcute/web": "^0.32.1",
         "@tg/bun": "workspace:*",
         "@tg/core": "workspace:*",
