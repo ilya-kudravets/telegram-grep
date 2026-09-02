@@ -1,4 +1,4 @@
-.PHONY: install start web test test-mutation typecheck lint format build build-public check clean distclean
+.PHONY: install start web smoke test test-mutation typecheck lint format build build-public check clean distclean
 
 install:
 	bun install
@@ -8,6 +8,11 @@ start:
 
 web:
 	bun run web
+
+# browser smoke page: the IndexedDB store and core-in-a-browser, which `bun test`
+# cannot reach. Serve it, then drive it with a browser (or the Playwright MCP).
+smoke:
+	bun apps/web/smoke/serve.ts
 
 test:
 	bun test

@@ -71,6 +71,7 @@ BAKED_API_ID=… BAKED_API_HASH=… make build-public
 
 - `bun test` — unit tests.
 - `bun run test:mutation` — StrykerJS mutation testing (config in `stryker.conf.json`), kept at 100%. Uses the command runner over `bun test` plus the TypeScript checker; reports go to `reports/mutation/` (gitignored).
+- `make smoke` — serves `apps/web/smoke/` on `127.0.0.1:8100`. It checks the two things `bun test` cannot: that the portable core runs in a browser, and that the IndexedDB store round-trips a cache snapshot across a page load. Load it once to seed, then again to restore (`?reset=1` clears the store); every check prints a `PASS`/`FAIL` line, so any browser or driver can read the result. Not in CI — that would mean a browser download on every run.
 
 ## CI & security
 
