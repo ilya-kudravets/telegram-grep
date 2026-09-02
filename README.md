@@ -81,7 +81,9 @@ Telegram straight from the tab (`@mtcute/web`), and keeps the cache in IndexedDB
   `api_id`/`api_hash` (my.telegram.org → API development tools) and keeps them in that browser.
 - A published build **may** carry a fallback pair so visitors don't each have to register an app:
   set the repository variables `BAKED_API_ID` / `BAKED_API_HASH` (Settings → Secrets and variables
-  → Actions → **Variables**), or build locally with `BAKED_API_ID=… BAKED_API_HASH=… make pages`.
+  → Actions → **Variables** — those exact names; `API_ID`/`API_HASH` are the *runtime* names and
+  are deliberately ignored here, so nothing gets published by accident), or build locally with
+  `BAKED_API_ID=… BAKED_API_HASH=… make pages`.
   The pair is packed (XOR+base64) so bots grepping deployments for a 32-hex `api_hash` find
   nothing, and the "use my own api_id" form stays available as an override. Understand the trade:
   **a pair in a browser bundle is public** — DevTools reads it in seconds — and if it gets abused
