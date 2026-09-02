@@ -1,5 +1,4 @@
-.PHONY: install start web mobile mobile-ios mobile-android mobile-prebuild mobile-typecheck \
-        test test-mutation typecheck lint format build check clean mobile-clean distclean
+.PHONY: install start web test test-mutation typecheck lint format build check clean distclean
 
 install:
 	bun install
@@ -9,29 +8,6 @@ start:
 
 web:
 	bun run web
-
-# Expo dev server (Metro) for apps/mobile
-mobile:
-	bun run mobile
-
-# build + launch on a simulator/device (native build via Xcode / Gradle)
-mobile-ios:
-	cd apps/mobile && bun run ios
-
-# JDK 17 required: the default JDK 26 breaks nitro-modules' CMake native configure
-# (restricted java.lang.System.load on JDK 24+). Resolve 17 via macOS java_home;
-# -F/--failfast so a missing JDK 17 errors loudly instead of falling back to the
-# newest JDK (java_home returns the highest installed, exit 0, without it).
-mobile-android:
-	cd apps/mobile && JAVA_HOME="$$(/usr/libexec/java_home -v 17 -F)" && export JAVA_HOME && bun run android
-
-# regenerate the native ios/ + android/ projects (run after native dep changes)
-mobile-prebuild:
-	cd apps/mobile && bunx expo prebuild --clean
-
-# apps/mobile is excluded from the root tsc (own RN toolchain) — check it on its own
-mobile-typecheck:
-	cd apps/mobile && bunx tsc --noEmit
 
 test:
 	bun test
@@ -51,16 +27,11 @@ format:
 build:
 	bun run build
 
-check: typecheck lint test mobile-typecheck
+check: typecheck lint test
 
 clean:
 	rm -rf dist out coverage reports .stryker-tmp
 	rm -f *.bun-build .*.bun-build *.tsbuildinfo *.lcov
 
-# generated native dirs + stale RN build caches (regenerate with `make mobile-prebuild`)
-mobile-clean:
-	rm -rf apps/mobile/ios apps/mobile/android apps/mobile/.expo
-	find apps/mobile/node_modules -type d -name .DerivedData -prune -exec rm -rf {} +
-
-distclean: clean mobile-clean
+distclean: clean
 	rm -rf node_modules
