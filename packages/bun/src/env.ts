@@ -1,4 +1,8 @@
 import { writeFileSync } from 'node:fs'
+import { unpackCreds } from '@tg/core/creds'
+
+// re-exported so the packing stays reachable through the single @tg/bun barrel
+export { packCreds, unpackCreds } from '@tg/core/creds'
 
 // SESSION_STRING is deliberately not templated here: auth already persists to
 // data/session after first login, so it's only useful for a one-off headless
@@ -8,31 +12,6 @@ const TEMPLATE = `# Get these at https://my.telegram.org -> API development tool
 API_ID=
 API_HASH=
 `
-
-// The baked pair travels as one packed blob so a published binary carries neither an
-// `api_hash`-shaped string nor a variable named after one.
-//
-// ponytail: XOR+base64 is obfuscation, NOT encryption, and the distinction matters. It
-// exists to stop bots that grep public artifacts for a 32-hex api_hash; anyone with a
-// debugger reads the unpacked pair in seconds. Never treat a baked id as secret —
-// register one for distribution and rotate it if it gets flagged.
-const SALT = 'tg-client'
-const xor = (s: string) =>
-  Array.from(s, (c, i) =>
-    String.fromCharCode(c.charCodeAt(0) ^ SALT.charCodeAt(i % SALT.length)),
-  ).join('')
-
-export const packCreds = (apiId: string, apiHash: string) => btoa(xor(`${apiId}:${apiHash}`))
-
-export function unpackCreds(packed?: string): { apiId?: string; apiHash?: string } {
-  if (!packed) return {}
-  try {
-    const [apiId, apiHash] = xor(atob(packed)).split(':')
-    return { apiId, apiHash }
-  } catch {
-    return {} // a corrupt blob must degrade to "bring your own key", not crash on import
-  }
-}
 
 // BAKED_CREDS is inlined at build time by `make build-public` (bun build --env='BAKED_*')
 // and is absent from a normal build, so a runtime API_ID/API_HASH always wins — a published

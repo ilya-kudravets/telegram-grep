@@ -1,21 +1,20 @@
-// Browser persistence for the in-memory Cache adapter's snapshot.
+// Browser persistence for the static client.
 //
 // IndexedDB rather than localStorage: a message archive blows past the ~5MB string
-// quota, and structured clone stores the snapshot's arrays as-is, with no JSON
-// round-trip. One store, one key — the snapshot is written and read whole, which is
-// what makes the synchronous Cache port workable in a tab (see cache-memory.ts).
+// quota. Both stored payloads are ciphertext (see crypto.ts) — the cache snapshot is
+// sealed as JSON, so structured clone only has to carry the byte arrays.
 //
-// ponytail: whole-snapshot writes. Fine while a save is milliseconds; switch to
-// per-chat records if an archive ever makes the write visible.
-import type { CacheSnapshot } from '@tg/core/cache-memory'
-import type { SealedSession } from './crypto'
+// ponytail: whole-snapshot writes, re-sealed each time. Fine while a save is
+// milliseconds; switch to per-chat records if an archive ever makes the write visible.
+import type { SealedBlob } from './crypto'
 
 const DB_NAME = 'tg-client'
 const STORE = 'cache'
 
-// Three records in one store: the message cache, the app credentials the user typed,
-// and the encrypted session. Kept separate so "forget my credentials" and "discard the
-// session" don't take the archive with them.
+// Three records in one store: the message cache, the app credentials, and the session.
+// The credentials are the only one stored in the clear — they are not secret from the
+// person who typed them, and they are what the client needs before any passphrase
+// exists. Cache and session are sealed under the same key.
 const KEY = 'snapshot'
 const CREDS_KEY = 'creds'
 const SESSION_KEY = 'session'
@@ -54,12 +53,12 @@ async function run<T>(
 }
 
 /** Undefined on a first launch — the caller starts with an empty cache. */
-export function loadSnapshot(): Promise<CacheSnapshot | undefined> {
-  return run('readonly', (s) => s.get(KEY) as IDBRequest<CacheSnapshot | undefined>)
+export function loadSealedSnapshot(): Promise<SealedBlob | undefined> {
+  return run('readonly', (s) => s.get(KEY) as IDBRequest<SealedBlob | undefined>)
 }
 
-export async function saveSnapshot(snapshot: CacheSnapshot): Promise<void> {
-  await run('readwrite', (s) => s.put(snapshot, KEY))
+export async function saveSealedSnapshot(sealed: SealedBlob): Promise<void> {
+  await run('readwrite', (s) => s.put(sealed, KEY))
 }
 
 export async function clearSnapshot(): Promise<void> {
@@ -82,16 +81,39 @@ export async function clearCreds(): Promise<void> {
 /**
  * The session as stored: ciphertext plus its salt and IV. Reading this record gives an
  * attacker nothing without the passphrase, which is the whole point of keeping mtcute's
- * own storage driver out of the picture (it would write the session in the clear).
+ * own storage driver out of the picture (it would write the session in the clear). It
+ * doubles as the proof record `unlockVault` opens to check a passphrase.
  */
-export function loadSealedSession(): Promise<SealedSession | undefined> {
-  return run('readonly', (s) => s.get(SESSION_KEY) as IDBRequest<SealedSession | undefined>)
+export function loadSealedSession(): Promise<SealedBlob | undefined> {
+  return run('readonly', (s) => s.get(SESSION_KEY) as IDBRequest<SealedBlob | undefined>)
 }
 
-export async function saveSealedSession(sealed: SealedSession): Promise<void> {
+export async function saveSealedSession(sealed: SealedBlob): Promise<void> {
   await run('readwrite', (s) => s.put(sealed, SESSION_KEY))
 }
 
+/**
+ * Drops the session *and* the cache: both are sealed under the key the session record
+ * proves, so a cache left behind would be unreadable anyway.
+ */
 export async function clearSealedSession(): Promise<void> {
   await run('readwrite', (s) => s.delete(SESSION_KEY))
+  await clearSnapshot()
+}
+
+/**
+ * Everything this origin holds, gone: the database itself plus the handful of UI
+ * preferences in localStorage. Used by "erase all data", which must work even when
+ * nothing can be unlocked.
+ */
+export async function wipeAll(): Promise<void> {
+  localStorage.clear()
+  await new Promise<void>((resolve, reject) => {
+    const req = indexedDB.deleteDatabase(DB_NAME)
+    req.onsuccess = () => resolve()
+    req.onerror = () => reject(req.error)
+    // another tab holding a connection blocks the delete; the reload that follows
+    // an erase closes ours, and the delete completes then
+    req.onblocked = () => resolve()
+  })
 }

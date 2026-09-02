@@ -1,27 +1,26 @@
-// Browser smoke for the static-client foundation. Two things cannot be checked from
-// `bun test`, and both are load-bearing for the GitHub Pages plan:
+// Browser smoke for the static client's storage layer. Three things cannot be checked
+// from `bun test`, and all are load-bearing for the GitHub Pages build:
 //
 //   1. the portable core actually runs in a browser (no Node/Bun API sneaks in through
 //      @tg/core/cache-memory or @tg/core/search),
-//   2. the IndexedDB store round-trips a snapshot across a page load,
-//   3. a session sealed under a passphrase survives that load, opens with the right
-//      passphrase, refuses the wrong one, and never lands in storage as plaintext.
+//   2. the cache and the session survive a page load through IndexedDB,
+//   3. both are stored as ciphertext: the right passphrase opens them, the wrong one is
+//      refused, and neither record holds readable message text or a session string.
 //
 // The page reports one line per check, so a browser driver only has to read text.
 // Load it once to seed, then again: the second load must restore what the first saved.
 import { createMemoryCache } from '@tg/core/cache-memory'
 import { compilePattern, searchCache } from '@tg/core/search'
-import { openSession, sealSession } from '../web/crypto'
+import { createVault, type SealedBlob, unlockVault } from '../web/crypto'
 import {
-  clearCreds,
-  clearSealedSession,
-  clearSnapshot,
+  type AppCreds,
   loadCreds,
   loadSealedSession,
-  loadSnapshot,
+  loadSealedSnapshot,
   saveCreds,
   saveSealedSession,
-  saveSnapshot,
+  saveSealedSnapshot,
+  wipeAll,
 } from '../web/store'
 
 const log = document.getElementById('log') as HTMLElement
@@ -49,35 +48,65 @@ const seed = [
 // stand-ins for a real mtcute session string and the user's own application pair
 const SESSION = `fake-exported-session:${'x'.repeat(64)}`
 const PASSPHRASE = 'correct horse battery staple'
-const CREDS = { apiId: 1234567, apiHash: '0123456789abcdef0123456789abcdef' }
+const CREDS: AppCreds = { apiId: 1234567, apiHash: '0123456789abcdef0123456789abcdef' }
+
+// what IndexedDB actually holds, as a string a check can search for plaintext in
+const asText = (sealed: SealedBlob) =>
+  JSON.stringify(sealed, (_k, v) =>
+    v instanceof Uint8Array ? [...v].map((b) => String.fromCharCode(b)).join('') : v,
+  )
 
 async function main() {
-  if (new URL(location.href).searchParams.has('reset')) {
-    await Promise.all([clearSnapshot(), clearCreds(), clearSealedSession()])
-  }
-  const restored = await loadSnapshot()
+  if (new URL(location.href).searchParams.has('reset')) await wipeAll()
+  const storedSnapshot = await loadSealedSnapshot()
 
-  if (!restored) {
+  if (!storedSnapshot) {
     const cache = createMemoryCache()
     cache.upsertChat(1, 'Alice')
     cache.upsertChat(-1000000000123, 'Channel')
     cache.insertMessages([...seed])
-    await saveSnapshot(cache.snapshot())
+
+    const vault = await createVault(PASSPHRASE)
+    const sealedCache = await vault.seal(JSON.stringify(cache.snapshot()))
+    const sealedSession = await vault.seal(SESSION)
+    await saveSealedSnapshot(sealedCache)
+    await saveSealedSession(sealedSession)
     await saveCreds(CREDS)
-    const sealed = await sealSession(SESSION, PASSPHRASE)
-    await saveSealedSession(sealed)
-    // the record IndexedDB now holds must not contain the session anywhere in it
-    const raw = JSON.stringify(sealed, (_k, v) =>
-      v instanceof Uint8Array ? [...v].map((b) => String.fromCharCode(b)).join('') : v,
+
+    report(cache.count() === 3, `seeded ${cache.count()} messages and sealed a snapshot`)
+    report(!asText(sealedCache).includes('hunter2'), 'stored cache record holds no message text')
+    report(
+      !asText(sealedSession).includes('fake-exported-session'),
+      'stored session record holds no plaintext',
     )
-    report(!raw.includes('fake-exported-session'), 'stored session record holds no plaintext')
-    report(cache.count() === 3, `seeded ${cache.count()} messages and saved a snapshot`)
     document.body.dataset.phase = 'seeded'
     return
   }
 
-  const cache = createMemoryCache(restored)
-  report(cache.count() === 3, `restored ${cache.count()} messages from IndexedDB`)
+  const sealedSession = await loadSealedSession()
+  report(sealedSession !== undefined, 'sealed session came back from IndexedDB')
+  if (!sealedSession) {
+    document.body.dataset.phase = 'error'
+    return
+  }
+
+  report(
+    (await unlockVault(`${PASSPHRASE}!`, sealedSession)) === null,
+    'the wrong passphrase is refused',
+  )
+
+  const vault = await unlockVault(PASSPHRASE, sealedSession)
+  report(vault !== null, 'the right passphrase unlocks the vault')
+  if (!vault) {
+    document.body.dataset.phase = 'error'
+    return
+  }
+  report((await vault.open(sealedSession)) === SESSION, 'the session decrypts to what was stored')
+
+  const restored = await vault.open(storedSnapshot)
+  report(restored !== null, 'the cache decrypts with the same key as the session')
+  const cache = createMemoryCache(restored ? JSON.parse(restored) : undefined)
+  report(cache.count() === 3, `restored ${cache.count()} messages from the sealed snapshot`)
 
   const newestFirst = [...cache.iterAll()].map((r) => r.id)
   report(
@@ -99,13 +128,6 @@ async function main() {
     creds?.apiId === CREDS.apiId && creds?.apiHash === CREDS.apiHash,
     'application credentials survived the reload',
   )
-
-  const sealed = await loadSealedSession()
-  report(sealed !== undefined, 'sealed session came back from IndexedDB')
-  const opened = sealed && (await openSession(sealed, PASSPHRASE))
-  report(opened === SESSION, 'the right passphrase decrypts the session')
-  const refused = sealed && (await openSession(sealed, `${PASSPHRASE}!`))
-  report(refused === null, 'the wrong passphrase is refused')
 
   document.body.dataset.phase = 'restored'
 }

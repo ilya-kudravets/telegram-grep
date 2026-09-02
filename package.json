@@ -28,6 +28,6 @@
     "lint": "biome ci",
     "format": "biome check --write",
     "build": "bun build apps/cli/src/index.ts --compile --outfile dist/tg-client",
-    "build:pages": "bun build apps/web/web/static.html --outdir dist/pages --public-path=./ --minify"
+    "build:pages": "bun build apps/web/web/static.html --outdir dist/pages --public-path=./ --minify --env='BAKED_*'"
   }
 }

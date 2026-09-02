@@ -1,29 +1,35 @@
 // Entry for the server-less build (GitHub Pages). Everything the self-hosted app gets
-// from its server, this gets from the browser: the user's own api_id/api_hash, a session
-// encrypted under their passphrase, and @tg/core running against the in-memory cache.
+// from its server, this gets from the browser: application credentials (the user's own,
+// or the fallback pair a public build may bake in), a session and a message cache
+// encrypted under the user's passphrase, and @tg/core running against the in-memory
+// cache.
 //
 // The gate below is the only UI this file owns — once unlocked it hands the shared
 // <App/> the same DataLayer the server entry hands it.
+//
+// The passphrase is asked for *before* the Telegram login, not after: the vault has to
+// exist before the first byte of cache or session is written, and asking once up front
+// is simpler than retrofitting a key onto data already in flight.
 import { makeT, normalizeLang } from '@tg/core/i18n'
 import { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './app'
+import { bakedCreds } from './baked'
 import { type BrowserClient, createBrowserClient } from './core-client'
-import { openSession, sealSession } from './crypto'
+import { createVault, unlockVault } from './crypto'
 import {
   type AppCreds,
-  clearCreds,
-  clearSealedSession,
   loadCreds,
   loadSealedSession,
   saveCreds,
   saveSealedSession,
+  wipeAll,
 } from './store'
 
 const MIN_PASSPHRASE = 8
 const t = makeT(normalizeLang(navigator.language) ?? 'en')
 
-type Phase = 'boot' | 'creds' | 'unlock' | 'login' | 'seal' | 'ready'
+type Phase = 'boot' | 'creds' | 'unlock' | 'seal' | 'login' | 'ready'
 
 /** A pending mtcute prompt: the login flow blocks on this promise until the user answers. */
 interface Ask {
@@ -38,17 +44,19 @@ function Gate() {
   const [busy, setBusy] = useState(false)
   const [connected, setConnected] = useState('')
   const [ask, setAsk] = useState<Ask | null>(null)
+  const [ownCreds, setOwnCreds] = useState(false) // user-supplied pair, not the baked one
+  const creds = useRef<AppCreds | undefined>(undefined)
   const client = useRef<BrowserClient | null>(null)
-  const sessionToSeal = useRef('')
 
-  // First load decides the phase: no credentials → ask for them; a sealed session →
-  // unlock; otherwise a fresh login. The cache is restored either way.
+  // First load decides the phase: no credentials at all → ask for them; a stored session
+  // → unlock it; otherwise a fresh passphrase, then a login.
   useEffect(() => {
     ;(async () => {
-      const creds = await loadCreds()
-      if (!creds) return setPhase('creds')
-      client.current = await createBrowserClient(creds)
-      setPhase((await loadSealedSession()) ? 'unlock' : 'login')
+      const stored = await loadCreds()
+      creds.current = stored ?? bakedCreds
+      setOwnCreds(stored !== undefined)
+      if (!creds.current) return setPhase('creds')
+      setPhase((await loadSealedSession()) ? 'unlock' : 'seal')
     })().catch((e) => setError(String(e)))
   }, [])
 
@@ -69,20 +77,52 @@ function Gate() {
   const field = (form: HTMLFormElement, name: string) =>
     (form.elements.namedItem(name) as HTMLInputElement).value.trim()
 
-  const saveAndBoot = (form: HTMLFormElement) =>
+  const passphraseOf = (form: HTMLFormElement) => {
+    const passphrase = field(form, 'passphrase')
+    if (passphrase.length < MIN_PASSPHRASE) {
+      throw new Error(t('passphraseTooShort', MIN_PASSPHRASE))
+    }
+    return passphrase
+  }
+
+  const saveOwnCreds = (form: HTMLFormElement) =>
     guard(async () => {
-      const creds: AppCreds = {
+      const pair: AppCreds = {
         apiId: Number(field(form, 'apiId')),
         apiHash: field(form, 'apiHash'),
       }
-      if (!creds.apiId || !creds.apiHash) throw new Error(t('credsTitle'))
-      await saveCreds(creds)
-      client.current = await createBrowserClient(creds)
+      if (!pair.apiId || !pair.apiHash) throw new Error(t('credsTitle'))
+      await saveCreds(pair)
+      // Reload rather than swap the pair under a live client: a running mtcute client is
+      // bound to the api_id it was built with.
+      location.reload()
+    })
+
+  const seal = (form: HTMLFormElement) =>
+    guard(async () => {
+      const vault = await createVault(passphraseOf(form))
+      client.current = await createBrowserClient(creds.current!, vault)
       setPhase('login')
     })
 
+  const unlock = (form: HTMLFormElement) =>
+    guard(async () => {
+      const sealed = await loadSealedSession()
+      if (!sealed) return setPhase('seal')
+      const vault = await unlockVault(field(form, 'passphrase'), sealed)
+      if (!vault) throw new Error(t('wrongPassphrase'))
+      client.current = await createBrowserClient(creds.current!, vault)
+      // A session that no longer authorizes is not a dead end: the cache is decrypted and
+      // searchable, so the UI opens with an offline notice and a login button.
+      const user = (await client.current.resume((await vault.open(sealed))!)) ?? ''
+      setConnected(user)
+      setPhase('ready')
+      if (user) client.current.sync() // syncing while unauthorized would only report its failure
+    })
+
   // Runs the whole interactive login: mtcute calls back for phone/code/password, each
-  // callback parks on a promise the form below resolves.
+  // callback parks on a promise the form below resolves. The session it returns is sealed
+  // with the vault the passphrase already created.
   const startLogin = guard(async () => {
     const prompt = (label: string, secret = false) =>
       new Promise<string>((resolve) => setAsk({ label, secret, resolve }))
@@ -92,50 +132,36 @@ function Gate() {
         code: () => prompt(t('askCode')),
         password: () => prompt(t('askPassword'), true),
       })
-      sessionToSeal.current = session
+      await saveSealedSession(await client.current!.seal(session))
       setConnected(user)
-      setPhase('seal')
+      setPhase('ready')
+      client.current!.sync()
     } finally {
       setAsk(null) // a failed login must not leave a dead prompt on screen
     }
   })
 
-  const unlock = (form: HTMLFormElement) =>
-    guard(async () => {
-      const sealed = await loadSealedSession()
-      if (!sealed) return setPhase('login')
-      const session = await openSession(sealed, field(form, 'passphrase'))
-      if (session === null) throw new Error(t('wrongPassphrase'))
-      // A session that no longer authorizes is not a dead end: the restored cache is
-      // still searchable, so the UI opens with an offline notice and a login button.
-      const user = (await client.current!.resume(session)) ?? ''
-      setConnected(user)
-      setPhase('ready')
-      if (user) client.current!.sync() // syncing while unauthorized would only report its failure
-    })
-
-  const seal = (form: HTMLFormElement) =>
-    guard(async () => {
-      const passphrase = field(form, 'passphrase')
-      if (passphrase.length < MIN_PASSPHRASE) {
-        throw new Error(t('passphraseTooShort', MIN_PASSPHRASE))
-      }
-      await saveSealedSession(await sealSession(sessionToSeal.current, passphrase))
-      sessionToSeal.current = ''
-      setPhase('ready')
-      client.current!.sync()
-    })
-
-  // Reload rather than unwind: the mtcute client and the derived key live in this page,
-  // and a fresh page is the honest way to drop both.
-  const discard = guard(async () => {
-    await clearSealedSession()
+  // Revokes the session on Telegram's side first: if that call fails the local data stays
+  // put, so the user can retry instead of ending up logged in everywhere but here.
+  const logout = guard(async () => {
+    await client.current?.logout()
+    await wipeAll()
     location.reload()
   })
-  const forget = guard(async () => {
-    await Promise.all([clearSealedSession(), clearCreds()])
+
+  // The unconditional escape: no network, no key needed. Also the answer to a forgotten
+  // passphrase, since nothing sealed under it can be recovered.
+  const erase = guard(async () => {
+    if (!confirm(t('confirmErase'))) return
+    await wipeAll()
     location.reload()
   })
+
+  const credsLink = ownCreds ? null : (
+    <button type="button" className="link" onClick={() => setPhase('creds')} disabled={busy}>
+      {t('ownCredsLink')}
+    </button>
+  )
 
   if (phase === 'ready' && client.current) {
     return (
@@ -158,8 +184,11 @@ function Gate() {
               {t('loginTitle')}
             </button>
           )}
-          <button type="button" onClick={discard} disabled={busy}>
-            {t('discardSession')}
+          <button type="button" onClick={logout} disabled={busy}>
+            {t('logoutBtn')}
+          </button>
+          <button type="button" className="danger" onClick={erase} disabled={busy}>
+            {t('eraseBtn')}
           </button>
           {error && <span className="err">{error}</span>}
         </div>
@@ -175,7 +204,7 @@ function Gate() {
       {phase === 'boot' && <p>{t('working')}</p>}
 
       {phase === 'creds' && (
-        <form onSubmit={(e) => saveAndBoot(e.currentTarget)(e)}>
+        <form onSubmit={(e) => saveOwnCreds(e.currentTarget)(e)}>
           <h2>{t('credsTitle')}</h2>
           <p>{t('credsHint')}</p>
           <input
@@ -186,6 +215,23 @@ function Gate() {
             autoFocus
           />
           <input name="apiHash" placeholder={t('apiHashLabel')} required />
+          <button type="submit" disabled={busy}>
+            {t('saveBtn')}
+          </button>
+        </form>
+      )}
+
+      {phase === 'seal' && (
+        <form onSubmit={(e) => seal(e.currentTarget)(e)}>
+          <h2>{t('sealTitle')}</h2>
+          <p>{t('sealHint')}</p>
+          <input
+            name="passphrase"
+            type="password"
+            placeholder={t('passphraseLabel')}
+            required
+            autoFocus
+          />
           <button type="submit" disabled={busy}>
             {t('saveBtn')}
           </button>
@@ -204,9 +250,6 @@ function Gate() {
           />
           <button type="submit" disabled={busy}>
             {t('unlockBtn')}
-          </button>
-          <button type="button" className="danger" onClick={discard} disabled={busy}>
-            {t('discardSession')}
           </button>
         </form>
       )}
@@ -234,27 +277,11 @@ function Gate() {
           </form>
         ))}
 
-      {phase === 'seal' && (
-        <form onSubmit={(e) => seal(e.currentTarget)(e)}>
-          <h2>{t('sealTitle')}</h2>
-          <p>{t('sealHint')}</p>
-          <input
-            name="passphrase"
-            type="password"
-            placeholder={t('passphraseLabel')}
-            required
-            autoFocus
-          />
-          <button type="submit" disabled={busy}>
-            {t('saveBtn')}
-          </button>
-        </form>
-      )}
-
       {error && <p className="err">{error}</p>}
-      {phase !== 'boot' && phase !== 'creds' && (
-        <button type="button" className="link" onClick={forget} disabled={busy}>
-          {t('forgetCreds')}
+      {phase !== 'boot' && phase !== 'creds' && credsLink}
+      {phase !== 'boot' && (
+        <button type="button" className="link danger" onClick={erase} disabled={busy}>
+          {t('eraseBtn')}
         </button>
       )}
     </div>

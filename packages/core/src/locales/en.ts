@@ -58,9 +58,14 @@ export const en = {
   passphraseLabel: 'Passphrase',
   unlockBtn: 'Unlock',
   wrongPassphrase: 'wrong passphrase',
-  sealTitle: 'Encrypt your session',
+  logoutBtn: 'Log out',
+  eraseBtn: 'Erase all data',
+  confirmErase:
+    'Erase the cached messages, the stored session and the saved credentials from this browser?',
+  ownCredsLink: 'use my own api_id',
+  sealTitle: 'Choose a passphrase',
   sealHint:
-    'This passphrase encrypts the session in this browser. There is no recovery: forget it and you log in again.',
+    'It encrypts your session and your cached messages in this browser, and is never stored anywhere. There is no recovery: forget it and the only way back is erasing the data and logging in again.',
   passphraseTooShort: 'at least {0} characters',
   loginTitle: 'Log in to Telegram',
   loginStart: 'Start',
@@ -69,8 +74,6 @@ export const en = {
   connectedAs: 'connected as {0}',
   offlineOnly: 'not connected — searching the local cache',
   syncBtn: 'Sync',
-  discardSession: 'Discard session',
-  forgetCreds: 'Forget credentials',
   working: 'working…',
 }
 
