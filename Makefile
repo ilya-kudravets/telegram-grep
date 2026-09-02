@@ -42,15 +42,26 @@ build:
 build-public:
 	@[ -n "$$BAKED_API_ID" ] && [ -n "$$BAKED_API_HASH" ] || \
 		{ echo "set BAKED_API_ID and BAKED_API_HASH (my.telegram.org)"; exit 1; }
-	BAKED_CREDS="$$(bun -e 'import { packCreds } from "./packages/bun/src/env.ts"; \
+	BAKED_CREDS="$$(bun -e 'import { packCreds } from "./packages/core/src/creds.ts"; \
 		process.stdout.write(packCreds(process.env.BAKED_API_ID, process.env.BAKED_API_HASH))')" \
 		bun build apps/cli/src/index.ts --compile --env='BAKED_*' --outfile dist/tg-client
 
 # Static, server-less build for GitHub Pages (or any file host). Relative asset paths
 # (--public-path=./) so it also works from a project-page subpath like /telegram-grep/.
-# Nothing is baked in: the user supplies their own api_id/api_hash at first launch.
+#
+# By default nothing is baked in and the page asks for an api_id/api_hash at first launch.
+# Set BAKED_API_ID/BAKED_API_HASH to ship a fallback pair (the form stays available as an
+# override). A pair in a browser bundle is PUBLIC — DevTools reads it in seconds — so
+# register an app id for the site, never the one you use yourself, and rotate it if it
+# gets flagged.
 pages:
-	bun run build:pages
+	@if [ -n "$$BAKED_API_ID" ] && [ -n "$$BAKED_API_HASH" ]; then \
+		BAKED_CREDS="$$(bun -e 'import { packCreds } from "./packages/core/src/creds.ts"; \
+			process.stdout.write(packCreds(process.env.BAKED_API_ID, process.env.BAKED_API_HASH))')" \
+			bun run build:pages; \
+	else \
+		bun run build:pages; \
+	fi
 
 # Serve the built bundle from a subpath, the way Pages does — the check that no asset
 # request escapes the prefix.

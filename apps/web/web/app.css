@@ -289,6 +289,11 @@ button.link {
   font-size: 15px;
   padding: 16px 0 0;
   cursor: pointer;
+  display: block;
+}
+button.link.danger {
+  color: var(--red);
+  font-weight: 400;
 }
 .gatebar {
   display: flex;

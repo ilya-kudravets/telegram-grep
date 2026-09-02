@@ -5,29 +5,41 @@ Lets a user run the whole Telegram client from a static page in their own browse
 
 ## Requirements
 
-### Requirement: Bring-your-own application credentials
+### Requirement: Application credentials, the user's own or a baked fallback
 
-The static client MUST NOT contain Telegram application credentials. It MUST obtain `api_id` and `api_hash` from the person using it and MUST keep them on that device only.
+The static client MUST accept `api_id` and `api_hash` from the person using it and MUST keep them on that device only. A build MAY carry a fallback pair supplied at build time; when it does, the user-supplied pair MUST take precedence and the user MUST still be able to enter their own. A default build MUST carry no pair at all.
 
-#### Scenario: First launch has no credentials
-- **WHEN** the static client is opened with no stored credentials
+#### Scenario: First launch of a build with no baked pair
+- **WHEN** the static client is opened with no stored credentials and no pair was baked in
 - **THEN** it asks for `api_id` and `api_hash`, links to where they are obtained, and refuses to connect until both are supplied
+
+#### Scenario: First launch of a build with a baked pair
+- **WHEN** the static client is opened with no stored credentials and a pair was baked in
+- **THEN** it does not ask for credentials, uses the baked pair, and still offers a way to supply the user's own
 
 #### Scenario: Credentials are reused on later launches
 - **WHEN** the client is opened again on the same browser after credentials were saved
 - **THEN** it does not ask again and uses the stored pair
 
-#### Scenario: Credentials never ship in the bundle
-- **WHEN** the published static bundle is searched for an `api_hash`
+#### Scenario: A baked pair is not a secret
+- **WHEN** a pair is baked into the published bundle
+- **THEN** it is stored packed rather than as a literal `api_hash`, and the documentation states that a bundled pair is publicly readable and must be an app id registered for the deployment
+
+#### Scenario: Default build ships no credentials
+- **WHEN** a build made without the baked-pair inputs is searched for an `api_hash`
 - **THEN** none is present, in any encoding
 
-### Requirement: Session encrypted at rest under a mandatory passphrase
+### Requirement: Session and cache encrypted at rest under a mandatory passphrase
 
-A stored Telegram session MUST be unreadable without a passphrase chosen by the user. The passphrase MUST NOT be optional, MUST NOT be persisted anywhere, and the key derived from it MUST exist only for the lifetime of the page.
+Both the stored Telegram session and the stored message cache MUST be unreadable without a passphrase chosen by the user. The passphrase MUST NOT be optional, MUST NOT be persisted anywhere, and the key derived from it MUST exist only for the lifetime of the page.
 
-#### Scenario: Setting a passphrase after logging in
-- **WHEN** the user completes a Telegram login
-- **THEN** the client requires a passphrase before storing the session, and what it stores is ciphertext with no plaintext session string alongside it
+#### Scenario: Setting a passphrase before anything is stored
+- **WHEN** the client is opened with credentials but no stored session
+- **THEN** it requires a passphrase before the Telegram login, so that no session or cached message is ever written unencrypted
+
+#### Scenario: Cached messages are ciphertext
+- **WHEN** history has been synced and the browser's storage is inspected
+- **THEN** the cache record contains no readable message text, sender or chat title
 
 #### Scenario: Unlocking on a later load
 - **WHEN** the client is opened with an encrypted session present
@@ -37,16 +49,16 @@ A stored Telegram session MUST be unreadable without a passphrase chosen by the 
 - **WHEN** an incorrect passphrase is entered
 - **THEN** the client reports failure, does not reach the client UI, and leaves the stored ciphertext untouched
 
-#### Scenario: Discarding a session that cannot be unlocked
+#### Scenario: Discarding data that cannot be unlocked
 - **WHEN** the user cannot supply the passphrase and chooses to start over
-- **THEN** the client can erase the stored session and returns to the login flow
+- **THEN** the client can erase every stored record without the passphrase, and returns to the login flow
 
 ### Requirement: Cached history works offline in the browser
 
 The static client MUST hold its message cache in the browser, MUST restore it on load, and MUST serve regex search from it without contacting Telegram.
 
 #### Scenario: Search before any connection
-- **WHEN** a cache from a previous session is present and the user searches while unlocked but not connected
+- **WHEN** a cache from a previous session is present and the user searches after unlocking but without a working connection
 - **THEN** matching messages are returned from browser storage, newest first, with chat titles
 
 #### Scenario: Cache survives a reload
@@ -76,3 +88,19 @@ The client MUST be publishable as static files and MUST work when served from a 
 #### Scenario: No server-side dependency
 - **WHEN** the bundle is served by any plain static file host
 - **THEN** the client works, requiring no API endpoint, no cookie and no server-set header
+
+### Requirement: Leaving the browser clean
+
+The client MUST offer a way to end the Telegram session remotely and a way to erase everything it stored locally. The local erase MUST work with no network and no passphrase.
+
+#### Scenario: Logging out
+- **WHEN** the user logs out
+- **THEN** the session is revoked on Telegram's side, and the local session, cache and credentials are removed only after that succeeds
+
+#### Scenario: Log out fails
+- **WHEN** revoking the session on Telegram's side fails
+- **THEN** the stored data is left intact and the failure is reported, so the user can retry rather than end up logged in remotely with no local session
+
+#### Scenario: Erasing everything locally
+- **WHEN** the user chooses to erase all data
+- **THEN** the client confirms, then removes the cache, the session and the saved credentials from the browser, and returns to its first-launch state

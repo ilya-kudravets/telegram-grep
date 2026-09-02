@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./cache": "./src/cache.ts",
     "./cache-memory": "./src/cache-memory.ts",
+    "./creds": "./src/creds.ts",
     "./search": "./src/search.ts",
     "./sync": "./src/sync.ts",
     "./deleter": "./src/deleter.ts",

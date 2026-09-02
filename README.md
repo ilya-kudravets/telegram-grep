@@ -77,16 +77,29 @@ Telegram straight from the tab (`@mtcute/web`), and keeps the cache in IndexedDB
   `/telegram-grep/` on `127.0.0.1:8101` — the check that no asset request escapes the prefix.
 - `.github/workflows/pages.yml` publishes it on every push to `main` (and on manual dispatch),
   once Pages is enabled for the repo with **GitHub Actions** as the source.
-- **Nothing is baked into the bundle.** First launch asks for your own `api_id`/`api_hash`
-  (my.telegram.org → API development tools); they stay in that browser. "Forget credentials"
-  removes them.
-- The Telegram session is stored **encrypted under a passphrase you choose** (WebCrypto:
-  PBKDF2-SHA256, 250k iterations → AES-GCM). Every load shows an unlock prompt; the derived key
-  lives only in the page. **There is no recovery** — forget the passphrase and your only option is
-  "Discard session" and a fresh login (the cached history stays, and stays searchable offline).
-- Caveat, stated plainly: encryption at rest protects the session from someone reading the
-  browser's storage, **not** from script running in the page while it is unlocked. No browser
-  client can protect against that. Host your own copy if you don't want to trust someone else's.
+- By default **nothing is baked into the bundle**: the first launch asks for your own
+  `api_id`/`api_hash` (my.telegram.org → API development tools) and keeps them in that browser.
+- A published build **may** carry a fallback pair so visitors don't each have to register an app:
+  set the repository variables `BAKED_API_ID` / `BAKED_API_HASH` (Settings → Secrets and variables
+  → Actions → **Variables**), or build locally with `BAKED_API_ID=… BAKED_API_HASH=… make pages`.
+  The pair is packed (XOR+base64) so bots grepping deployments for a 32-hex `api_hash` find
+  nothing, and the "use my own api_id" form stays available as an override. Understand the trade:
+  **a pair in a browser bundle is public** — DevTools reads it in seconds — and if it gets abused
+  Telegram restricts *that app id*, which breaks the page for everyone at once. Register an app for
+  the site, never the one you use yourself, and rotate the variables if it gets flagged. (Every
+  Telegram client does this, including Telegram Web, whose own pair sits in its JS.)
+- **The session and the message cache are both encrypted at rest** under a passphrase you choose
+  (WebCrypto: PBKDF2-SHA256, 250k iterations → one AES-GCM key, fresh IV per write). The
+  passphrase is asked for before the Telegram login, never stored, and the derived key lives only
+  in the page — so a reload always asks again. **There is no recovery:** forget it and the only way
+  back is "Erase all data" and a fresh login.
+- Two exits, and they mean different things: **Log out** revokes the session on Telegram's side
+  first and only then wipes this browser (if the revoke fails, nothing local is touched, so you
+  can retry); **Erase all data** needs no network and no key — it deletes the cache, the session
+  and the saved credentials, which is also the answer to a forgotten passphrase.
+- Caveat, stated plainly: encryption at rest protects your data from someone reading the browser's
+  storage, **not** from script running in the page while it is unlocked. No browser client can
+  protect against that. Host your own copy if you don't want to trust someone else's.
 - mtcute's wasm crypto blob is imported as a bundled asset (`with { type: 'file' }`), because
   its own `new URL('./mtcute.wasm', import.meta.url)` points into the bundle's directory after
   bundling — a 404 that shows up as a WebAssembly "expected magic word" error.
@@ -97,7 +110,7 @@ Telegram straight from the tab (`@mtcute/web`), and keeps the cache in IndexedDB
 
 - `bun test` — unit tests.
 - `bun run test:mutation` — StrykerJS mutation testing (config in `stryker.conf.json`), kept at 100%. Uses the command runner over `bun test` plus the TypeScript checker; reports go to `reports/mutation/` (gitignored).
-- `make smoke` — serves `apps/web/smoke/` on `127.0.0.1:8100`. It checks what `bun test` cannot: that the portable core runs in a browser, that the IndexedDB store round-trips a cache snapshot across a page load, and that a session sealed under a passphrase survives that load (right passphrase opens it, wrong one is refused, no plaintext in the stored record). Load it once to seed, then again to restore (`?reset=1` clears the store); every check prints a `PASS`/`FAIL` line, so any browser or driver can read the result. Not in CI — that would mean a browser download on every run.
+- `make smoke` — serves `apps/web/smoke/` on `127.0.0.1:8100`. It checks what `bun test` cannot: that the portable core runs in a browser, that the sealed cache and session survive a page load through IndexedDB, and that both are really ciphertext (right passphrase opens them, wrong one refused, no message text or session string in either record). Load it once to seed, then again to restore (`?reset=1` clears the store); every check prints a `PASS`/`FAIL` line, so any browser or driver can read the result. Not in CI — that would mean a browser download on every run.
 
 ## CI & security
 

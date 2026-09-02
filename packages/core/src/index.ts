@@ -5,6 +5,7 @@
 // the file layout; this barrel re-exports everything for convenience.
 export * from './cache'
 export * from './cache-memory'
+export * from './creds'
 export * from './deleter'
 export * from './i18n'
 export * from './search'

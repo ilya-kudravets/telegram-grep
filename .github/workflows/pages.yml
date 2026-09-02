@@ -1,8 +1,14 @@
 name: Pages
 
-# Publishes the server-less browser client (apps/web/web/static.html). Nothing secret
-# is built in: the user supplies their own api_id/api_hash at first launch, so the
-# artifact is the same for everyone and needs no repository secrets.
+# Publishes the server-less browser client (apps/web/web/static.html).
+#
+# Optionally bakes a fallback api_id/api_hash so visitors don't each have to register an
+# app: set the repository *variables* BAKED_API_ID and BAKED_API_HASH (Settings → Secrets
+# and variables → Actions → Variables). Variables, not secrets, on purpose — the pair ends
+# up in a public JS bundle, where DevTools reads it in seconds, so pretending otherwise
+# would be theatre. Register an app id for this site, never the one you use yourself, and
+# rotate the variables if Telegram flags it. Leave them unset and the page simply asks
+# each visitor for their own pair.
 #
 # Does nothing until Pages is enabled for the repository with "GitHub Actions" as the
 # source (Settings → Pages) — the deploy step fails fast otherwise.
@@ -36,7 +42,12 @@ jobs:
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
-      - run: bun run build:pages
+      # `make pages` packs the pair into BAKED_CREDS only when both are set, and builds a
+      # bundle with no credentials at all otherwise
+      - run: make pages
+        env:
+          BAKED_API_ID: ${{ vars.BAKED_API_ID }}
+          BAKED_API_HASH: ${{ vars.BAKED_API_HASH }}
       # Pages serves the artifact root, and a project page serves it under /<repo>/ —
       # the bundle's asset paths are relative, so both work. index.html is what Pages
       # looks for; the build emits static.html.

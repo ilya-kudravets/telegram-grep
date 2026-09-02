@@ -4,15 +4,17 @@
 //
 // mtcute's own storage would write the session in the clear, so this uses MemoryStorage
 // and owns persistence itself: `exportSession()` after a login, sealed under the user's
-// passphrase (crypto.ts) before it ever reaches IndexedDB.
+// passphrase (crypto.ts) before it ever reaches IndexedDB. The cache snapshot goes
+// through the same vault — message text is exactly as worth encrypting as the session.
 import wasmUrl from '@mtcute/wasm/mtcute.wasm' with { type: 'file' }
 import { MemoryStorage, TelegramClient, WebCryptoProvider } from '@mtcute/web'
-import { createMemoryCache } from '@tg/core/cache-memory'
+import { type CacheSnapshot, createMemoryCache } from '@tg/core/cache-memory'
 import { deleteEverywhere } from '@tg/core/deleter'
 import { compilePattern, searchCache } from '@tg/core/search'
 import { attachRealtime, syncAll } from '@tg/core/sync'
 import type { DataLayer, Status } from './app'
-import { type AppCreds, loadSnapshot, saveSnapshot } from './store'
+import type { SealedBlob, Vault } from './crypto'
+import { type AppCreds, loadSealedSnapshot, saveSealedSnapshot } from './store'
 
 /** Interactive login callbacks — mtcute asks, the UI answers. */
 export interface LoginPrompts {
@@ -30,12 +32,22 @@ export interface BrowserClient {
   login(prompts: LoginPrompts): Promise<{ user: string; session: string }>
   /** Fire-and-forget: progress and failure land in the status stream. */
   sync(): void
+  /** Revokes this session on Telegram's side. Throws if the call fails — the caller
+   * decides whether to wipe local storage anyway. */
+  logout(): Promise<void>
+  /** Seals a string with the same vault the cache uses — the caller stores the session
+   * string, and has no business holding a second key to do it. */
+  seal(plain: string): Promise<SealedBlob>
 }
 
 const SAVE_DEBOUNCE = 1000
 
-export async function createBrowserClient(creds: AppCreds): Promise<BrowserClient> {
-  const cache = createMemoryCache(await loadSnapshot())
+export async function createBrowserClient(creds: AppCreds, vault: Vault): Promise<BrowserClient> {
+  // A snapshot the vault cannot open (written under a passphrase that has since changed)
+  // is not an error worth stopping for — start empty and let the next sync refill it.
+  const sealed = await loadSealedSnapshot()
+  const restored = sealed ? await vault.open(sealed) : null
+  const cache = createMemoryCache(restored ? (JSON.parse(restored) as CacheSnapshot) : undefined)
   const tg = new TelegramClient({
     apiId: creds.apiId,
     apiHash: creds.apiHash,
@@ -66,14 +78,15 @@ export async function createBrowserClient(creds: AppCreds): Promise<BrowserClien
 
   // A snapshot write is the whole cache, and sync reports every 500-message batch, so
   // writes are coalesced. flush() is the "must not lose this" path (sync end, delete).
+  const store = async () => saveSealedSnapshot(await vault.seal(JSON.stringify(cache.snapshot())))
   let saveTimer: ReturnType<typeof setTimeout> | undefined
   const persist = () => {
     clearTimeout(saveTimer)
-    saveTimer = setTimeout(() => void saveSnapshot(cache.snapshot()), SAVE_DEBOUNCE)
+    saveTimer = setTimeout(() => void store(), SAVE_DEBOUNCE)
   }
   const flush = async () => {
     clearTimeout(saveTimer)
-    await saveSnapshot(cache.snapshot())
+    await store()
   }
 
   // realtime updates + the updates loop, once an authorization exists
@@ -130,6 +143,12 @@ export async function createBrowserClient(creds: AppCreds): Promise<BrowserClien
       await attach()
       return { user: me.displayName, session: await tg.exportSession() }
     },
+
+    async logout() {
+      await tg.logOut()
+    },
+
+    seal: (plain) => vault.seal(plain),
 
     sync() {
       status.syncDone = false

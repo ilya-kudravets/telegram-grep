@@ -26,8 +26,11 @@ cwd stays the root, so `.env` and `data/` live there.
   `web/static.tsx` (server-less GitHub Pages build; `core-client.ts` drives `@tg/core` against
   `@mtcute/web` in the tab). `web/app.tsx` knows neither — it takes an injected `DataLayer`
   (search / delete / status subscription), so a UI change lands in both. The static entry keeps
-  credentials, the cache snapshot and the passphrase-sealed session in IndexedDB (`store.ts` +
-  `crypto.ts`); mtcute's own storage is deliberately unused (it writes the session in plaintext),
+  credentials in the clear and **both** the cache snapshot and the session sealed under one
+  passphrase-derived key in IndexedDB (`store.ts` + `crypto.ts`: `createVault` for a new
+  passphrase, `unlockVault` for an existing record, which doubles as the passphrase proof — so
+  the passphrase is asked for *before* the login, and dropping the session drops the cache with
+  it); mtcute's own storage is deliberately unused (it writes the session in plaintext),
   hence `MemoryStorage` + `exportSession`/`importSession`. mtcute's wasm crypto blob must be
   handed in explicitly (`WebCryptoProvider({ wasmInput })` from a `with { type: 'file' }`
   import) — its own `import.meta.url` lookup 404s once bundled. `make pages` builds it
@@ -42,10 +45,13 @@ dependency in the repo**): it prints `PASS`/`FAIL` lines a driver can read.
 
 Credentials resolve in `packages/bun/src/env.ts` (`resolveCreds`): runtime `API_ID`/`API_HASH`
 first, then the pair `make build-public` inlines via `bun build --env='BAKED_*'` as one packed
-`BAKED_CREDS` blob (`packCreds`/`unpackCreds` — XOR+base64, anti-scraping only, never treat a
-baked id as secret). That flag only substitutes **literal** `process.env.X` expressions, so that
-read must stay literal — routing it through a parameter compiles fine and ships a binary with no
-baked pair. Every creds
+`BAKED_CREDS` blob (`packCreds`/`unpackCreds` live in `@tg/core/creds` because the web bundle
+bakes a pair too — XOR+base64, anti-scraping only, never treat a baked id as secret; in a browser
+bundle it is outright public). That flag only substitutes **literal** `process.env.X`
+expressions, so that read must stay literal — routing it through a parameter compiles fine and
+ships an artifact with no baked pair, and a `typeof process` guard around it is just as fatal in
+the browser (the read is substituted, the guard is not, so it discards the baked value —
+`apps/web/web/baked.ts` uses try/catch instead). Every creds
 check goes through `resolveCreds` (`createClient`, `ensureEnvFile`, the CLI's `authedClient`);
 adding a fourth reader means using it too. `--api-id`/`--api-hash` are stripped in `runCli` before
 dispatch and written into `process.env`.
