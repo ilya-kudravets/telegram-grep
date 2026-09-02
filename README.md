@@ -58,12 +58,14 @@ BAKED_API_ID=… BAKED_API_HASH=… make build-public
 - A runtime `API_ID`/`API_HASH` (or `--api-id`/`--api-hash`) still wins, so the baked pair can be
   rotated without breaking existing installs.
 - `--env='BAKED_*'` inlines **only** that prefix — nothing else from the build shell reaches the
-  binary. The two `process.env.BAKED_*` reads in `packages/bun/src/env.ts` are the substitution
-  sites; reading them indirectly would silently ship a binary with no baked pair.
-- **The baked pair is extractable** (`strings` finds it in seconds) — that is inherent to any
-  client that must use the key itself, not a gap to be closed with encryption. Register an app id
-  for the release instead of reusing your own: if it gets flagged for someone else's misuse,
-  Telegram restricts that app id, not your account.
+  binary. The `process.env.BAKED_CREDS` read in `packages/bun/src/env.ts` is the substitution
+  site; reading it indirectly would silently ship a binary with no baked pair.
+- The pair is packed (XOR + base64) before it is baked, so the binary carries neither an
+  `api_hash`-shaped string nor a variable named after one — a bot grepping released artifacts
+  finds nothing. That is **anti-scraping, not encryption**: the client has to use the key, so a
+  debugger recovers it in seconds. Register an app id for the release instead of reusing your own,
+  and rotate it if it gets flagged — if someone misuses it, Telegram restricts that app id, not
+  your account.
 
 ## Testing
 

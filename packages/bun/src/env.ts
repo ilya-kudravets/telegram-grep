@@ -9,13 +9,37 @@ API_ID=
 API_HASH=
 `
 
-// BAKED_* are inlined at build time by `make build-public` (bun build --env='BAKED_*')
-// and are absent from a normal build, so a runtime API_ID/API_HASH always wins — a
-// published binary keeps working after its baked app id is rotated or banned.
-// These two literal `process.env.X` reads are the substitution sites: `bun build
-// --env='BAKED_*'` can only replace the literal expression, so reading them through a
-// parameter (as an injected seam would) silently leaves the binary with no baked pair.
-const BAKED = { apiId: process.env.BAKED_API_ID, apiHash: process.env.BAKED_API_HASH }
+// The baked pair travels as one packed blob so a published binary carries neither an
+// `api_hash`-shaped string nor a variable named after one.
+//
+// ponytail: XOR+base64 is obfuscation, NOT encryption, and the distinction matters. It
+// exists to stop bots that grep public artifacts for a 32-hex api_hash; anyone with a
+// debugger reads the unpacked pair in seconds. Never treat a baked id as secret —
+// register one for distribution and rotate it if it gets flagged.
+const SALT = 'tg-client'
+const xor = (s: string) =>
+  Array.from(s, (c, i) =>
+    String.fromCharCode(c.charCodeAt(0) ^ SALT.charCodeAt(i % SALT.length)),
+  ).join('')
+
+export const packCreds = (apiId: string, apiHash: string) => btoa(xor(`${apiId}:${apiHash}`))
+
+export function unpackCreds(packed?: string): { apiId?: string; apiHash?: string } {
+  if (!packed) return {}
+  try {
+    const [apiId, apiHash] = xor(atob(packed)).split(':')
+    return { apiId, apiHash }
+  } catch {
+    return {} // a corrupt blob must degrade to "bring your own key", not crash on import
+  }
+}
+
+// BAKED_CREDS is inlined at build time by `make build-public` (bun build --env='BAKED_*')
+// and is absent from a normal build, so a runtime API_ID/API_HASH always wins — a published
+// binary keeps working after its baked app id is rotated or banned. This literal
+// `process.env.X` read is the substitution site: --env only replaces the literal
+// expression, so reading it through a parameter would silently ship no baked pair.
+const BAKED = unpackCreds(process.env.BAKED_CREDS)
 
 export function resolveCreds(
   env: Record<string, string | undefined> = process.env,
