@@ -25,16 +25,16 @@ Cache and session live in `data/` (not committed).
 Any subcommand runs headless and prints one line of JSON — no TUI. `tg-client tui`
 (or no args) still launches the interactive client.
 
-- `bun start search "<regex|/pat/flags>" [--limit N]` — search the cache (offline, no auth) → `{count, results}`
+- `bun start search "<regex|/pat/flags>" [--limit N]` — search the cache (offline, no auth) → `{count, results}`; `--limit` defaults to 1000
 - `bun start stats` — number of cached messages (offline) → `{messages}`
-- `bun start sync` — download/update history (needs auth) → `{chatsDone, messages, errors}`; progress prints to stderr as it runs (one line per update, overwritten in place on a TTY), so stdout stays a single JSON line
+- `bun start sync` — download/update history (needs auth) → `{chatsDone, messages, errors}` (`messages` is the total cached after the run, not the number downloaded); progress prints to stderr as it runs (one line per update, overwritten in place on a TTY), so stdout stays a single JSON line
 - `bun start delete <chatId>:<msgId> ...` — delete for everyone (needs auth) → `{deleted, errors}`
 - `bun start help` — usage JSON
 - `bun start --version` — `{version}`
 
 `search`/`stats` read `data/cache.db` directly and need no Telegram connection.
-Build a standalone binary with `bun run build` (→ `dist/tg-client`); `git tag v*`
-publishes per-platform binaries via `.github/workflows/release.yml`. See
+Build a standalone binary with `bun run build` (→ `dist/tg-client`); merging the
+release PR publishes per-platform binaries (see **Releases** below). See
 [AGENTS.md](AGENTS.md) for the agent setup guide and the
 [`telegram-grep-cli` skill](skills/telegram-grep-cli/SKILL.md) that downloads
 that binary and documents the commands.
@@ -51,6 +51,15 @@ GitHub Actions (`.github/workflows/`, deps cached across runs):
 - **lint.yml** — Biome lint + format check (`biome ci`, config in `biome.json`).
 - **codeql.yml** — CodeQL SAST (`security-extended`) on push/PR and weekly.
 - **dependabot.yml** — weekly PRs bumping dependencies (npm/`bun.lock`) and the actions themselves.
+- **release.yml** — see below.
+
+## Releases
+
+Driven by [release-please](https://github.com/googleapis/release-please): commit with
+[Conventional Commits](https://www.conventionalcommits.org/), and a push to `main` keeps a
+`chore(main): release X.Y.Z` PR open that bumps `package.json` and `CHANGELOG.md`. Merging **that**
+PR creates the `vX.Y.Z` tag and the GitHub release, and attaches the four `tg-client-<os>-<arch>`
+binaries (built on their matching runners). Nothing is tagged by hand.
 
 Locally: `bun run typecheck`, `bun run lint` (`bun run format` to autofix), `bun test`, `bun audit`.
 

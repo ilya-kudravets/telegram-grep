@@ -28,12 +28,13 @@ case "$(uname -sm)" in
   "Linux aarch64") ASSET=tg-client-linux-arm64 ;;
   *) echo "unsupported platform: $(uname -sm)"; exit 1 ;;
 esac
-curl -fsSL "https://github.com/$REPO/releases/latest/download/$ASSET" -o /usr/local/bin/tg-client
-chmod +x /usr/local/bin/tg-client
-tg-client help
+# /usr/local/bin is root-owned on a default macOS — fall back to ~/.local/bin
+BIN=/usr/local/bin; [ -w "$BIN" ] || BIN="$HOME/.local/bin"
+mkdir -p "$BIN"
+curl -fsSL "https://github.com/$REPO/releases/latest/download/$ASSET" -o "$BIN/tg-client"
+chmod +x "$BIN/tg-client"
+"$BIN/tg-client" help   # add $BIN to PATH to drop the prefix
 ```
-
-If `/usr/local/bin` is not writable, download to `~/.local/bin` (or any dir on `PATH`).
 
 ## 2. Auth (only for `sync` / `delete`)
 
@@ -64,6 +65,12 @@ Every command prints one line of JSON to stdout and exits non-zero on error.
 
 **Pattern**: a plain string matches case-insensitively; `/regex/flags` is used verbatim.
 `date` is unix seconds; `out` is `1` for messages you sent, `0` for received.
+`--limit` defaults to **1000** — pass it explicitly when you need more or fewer rows.
+`sync`'s `messages` is the **total** cached after the run, not the number downloaded;
+diff it against a prior `stats` if you need the delta.
+
+Never invoke `tg-client` with **no** command: that is the interactive TUI path, which
+prints plain text (not JSON) and creates a template `.env` in the current directory.
 
 ## 4. Typical agent workflow
 
