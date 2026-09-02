@@ -15,6 +15,9 @@ Bun workspaces (`workspaces` in the root `package.json`). Run everything from th
 cwd stays the root, so `.env` and `data/` live there.
 
 - `packages/core/` (`@tg/core`) — the **portable domain**. No platform code (no Bun, no `fs`).
+  Two `Cache` adapters implement its port: `bun:sqlite` (`packages/bun`) and the in-memory one
+  (`cache-memory.ts`) the browser client persists snapshots of. Both must satisfy
+  `tests/cache-conformance.ts` — add contract facts there, not to one adapter's own tests.
 - `packages/bun/` (`@tg/bun`) — the **Bun platform layer** shared by both apps. Single `@tg/bun`
   barrel; it also re-exports `@tg/core`'s sync/delete so apps have one import.
 - `apps/cli/` (`@tg/cli`) — the TUI + headless JSON CLI.

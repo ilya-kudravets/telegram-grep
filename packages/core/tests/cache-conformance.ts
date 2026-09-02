@@ -7,10 +7,10 @@
 //
 //   testCache('bun:sqlite', () => openCache(':memory:'))
 //
-// ponytail: only the Bun adapter calls it today — it stays a shared suite because a
-// second driver (Postgres, a browser-side cache) would otherwise copy it verbatim.
+// Callers: the bun:sqlite adapter (apps run on it) and the in-memory adapter the
+// browser client stores through.
 import { describe, expect, test } from 'bun:test'
-import type { Cache, CachedMessage } from '../src/cache'
+import { type Cache, type CachedMessage, MIN_CHANNEL_MARKED } from '../src/cache'
 
 const msg = (over: Partial<CachedMessage> = {}): CachedMessage => ({
   chat_id: 1,
@@ -35,6 +35,16 @@ export function testCache(label: string, open: () => Cache) {
       const rows = [...c.iterAll()]
       expect(rows).toHaveLength(2)
       expect(rows[0]!.chat_title).toBe('Chat One')
+    })
+
+    test('iterAll yields newest first, which is the order search results are shown in', () => {
+      const c = open()
+      c.insertMessages([
+        msg({ id: 1, date: 1700000001, text: 'oldest' }),
+        msg({ id: 3, date: 1700000003, text: 'newest' }),
+        msg({ id: 2, date: 1700000002, text: 'middle' }),
+      ])
+      expect([...c.iterAll()].map((r) => r.text)).toEqual(['newest', 'middle', 'oldest'])
     })
 
     test('insert does NOT advance last_msg_id (crash mid-chat must not skip older tail)', () => {
@@ -82,6 +92,19 @@ export function testCache(label: string, open: () => Cache) {
       expect([...c.iterAll()][0]!.chat_title).toBe('')
     })
 
+    test('a message from a chat that was never upserted still reads an empty title', () => {
+      const c = open()
+      c.insertMessages([msg()]) // no upsertChat at all — sync inserts before it names the chat
+      expect([...c.iterAll()][0]!.chat_title).toBe('')
+    })
+
+    test('a chat known only by its sync state reads an empty title', () => {
+      const c = open()
+      c.bumpLastMsgId(1, 5) // creates the chat row without ever setting a title
+      c.insertMessages([msg()])
+      expect([...c.iterAll()][0]!.chat_title).toBe('')
+    })
+
     test('backfill frontier: defaults, then round-trips through setOldestId/markBackfilled', () => {
       const c = open()
       expect(c.backfillState(1)).toEqual({ oldestId: 0, backfilled: false })
@@ -122,6 +145,15 @@ export function testCache(label: string, open: () => Cache) {
       const left = [...c.iterAll()]
       expect(left).toHaveLength(1)
       expect(left[0]!.chat_id).toBe(CHANNEL_MARKED)
+    })
+
+    test('deleteByUpdate: the marked-id boundary counts as a channel, so a non-channel update spares it', () => {
+      const c = open()
+      // marked channel ids are *below* MIN_CHANNEL_MARKED, so the boundary itself is not a
+      // reachable chat id — this pins the two adapters to the same answer for it anyway
+      c.insertMessages([msg({ chat_id: MIN_CHANNEL_MARKED, id: 5 })])
+      c.deleteByUpdate([5], null)
+      expect(c.count()).toBe(1)
     })
 
     test('deleteByUpdate removes multiple channel messages', () => {

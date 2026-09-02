@@ -4,6 +4,7 @@
 // Cache adapter and mtcute client. Subpath exports (@tg/core/sync, …) mirror
 // the file layout; this barrel re-exports everything for convenience.
 export * from './cache'
+export * from './cache-memory'
 export * from './deleter'
 export * from './i18n'
 export * from './search'
