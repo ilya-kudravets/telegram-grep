@@ -105,8 +105,16 @@ export async function login(tg: TelegramClient) {
     password: () => askHidden(t('askPassword')),
     // both default to console.log, which lands on stdout — the headless CLI's JSON
     // channel — and says nothing about 'app' delivery meaning "look in Telegram, not SMS"
-    codeSentCallback: (sent) =>
-      console.error(sent.type === 'app' ? t('codeSentApp') : t('codeSentVia', sent.type)),
+    codeSentCallback: (sent) => {
+      console.error(sent.type === 'app' ? t('codeSentApp') : t('codeSentVia', sent.type))
+      // Telegram's anti-abuse limit accepts the request and then simply doesn't deliver,
+      // so nextType/timeout is the only thing distinguishing that from a slow SMS
+      console.error(
+        sent.nextType === 'none'
+          ? t('codeNoResend')
+          : t('codeResendIn', sent.nextType, sent.timeout),
+      )
+    },
     invalidCodeCallback: (what) =>
       console.error(what === 'code' ? t('codeRejected') : t('passwordRejected')),
   })
