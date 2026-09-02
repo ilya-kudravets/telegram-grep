@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/ilya-kudravets/telegram-grep/compare/v0.3.0...v0.4.0) (2026-09-02)
+
+
+### Features
+
+* **web:** bakeable web credentials, encrypted cache, logout and erase ([#31](https://github.com/ilya-kudravets/telegram-grep/issues/31)) ([354bc07](https://github.com/ilya-kudravets/telegram-grep/commit/354bc07530a92b8427e515c4b2eb2bd8d25efbcc))
+
 ## [0.3.0](https://github.com/ilya-kudravets/telegram-grep/compare/v0.2.0...v0.3.0) (2026-09-02)
 
 
