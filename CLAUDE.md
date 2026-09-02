@@ -26,9 +26,11 @@ discover them repo-wide regardless of location. A root `Makefile` wraps these (`
 typecheck + lint + test).
 
 Credentials resolve in `packages/bun/src/env.ts` (`resolveCreds`): runtime `API_ID`/`API_HASH`
-first, then the pair `make build-public` inlines via `bun build --env='BAKED_*'`. That flag only
-substitutes **literal** `process.env.BAKED_*` expressions, so those two reads must stay literal —
-routing them through a parameter compiles fine and ships a binary with no baked pair. Every creds
+first, then the pair `make build-public` inlines via `bun build --env='BAKED_*'` as one packed
+`BAKED_CREDS` blob (`packCreds`/`unpackCreds` — XOR+base64, anti-scraping only, never treat a
+baked id as secret). That flag only substitutes **literal** `process.env.X` expressions, so that
+read must stay literal — routing it through a parameter compiles fine and ships a binary with no
+baked pair. Every creds
 check goes through `resolveCreds` (`createClient`, `ensureEnvFile`, the CLI's `authedClient`);
 adding a fourth reader means using it too. `--api-id`/`--api-hash` are stripped in `runCli` before
 dispatch and written into `process.env`.
