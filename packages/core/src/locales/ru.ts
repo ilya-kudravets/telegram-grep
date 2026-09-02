@@ -6,6 +6,12 @@ export const ru: Partial<Dict> = {
   badSessionString:
     'SESSION_STRING невалиден или не подходит — игнорирую, перехожу к обычному входу',
   askPhone: 'Телефон (+7…):',
+  apiIdPublished:
+    'Telegram отклоняет этот app id: он опубликован публично. Используйте свой api_id — ссылка ниже открывает форму.',
+  codeSentApp: 'Код пришёл внутрь Telegram, на другое устройство, где вы уже вошли — не по SMS.',
+  codeSentVia: 'Код отправлен через {0}.',
+  codeRejected: 'Код не принят. Попробуйте снова.',
+  passwordRejected: 'Пароль не принят. Попробуйте снова.',
   askCode: 'Код из Telegram:',
   askPassword: 'Пароль 2FA:',
   loggedInUi: 'Вошёл как {0}. Запускаю UI…',

@@ -6,6 +6,13 @@ export const en = {
   badSessionString:
     'SESSION_STRING is invalid or unusable — ignoring it, falling back to normal login',
   askPhone: 'Phone (+1…):',
+  apiIdPublished:
+    'Telegram is refusing this app id: it has been published publicly. Use your own api_id — the link below switches to that form.',
+  codeSentApp:
+    'The code was sent inside Telegram, to another device you are logged in on — not by SMS.',
+  codeSentVia: 'The code was sent via {0}.',
+  codeRejected: 'That code was rejected. Try again.',
+  passwordRejected: 'That password was rejected. Try again.',
   askCode: 'Code from Telegram:',
   askPassword: '2FA password:',
   // index (tui bootstrap)

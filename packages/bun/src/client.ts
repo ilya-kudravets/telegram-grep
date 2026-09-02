@@ -103,5 +103,11 @@ export async function login(tg: TelegramClient) {
     phone: () => askHidden(t('askPhone')),
     code: () => askHidden(t('askCode')),
     password: () => askHidden(t('askPassword')),
+    // both default to console.log, which lands on stdout — the headless CLI's JSON
+    // channel — and says nothing about 'app' delivery meaning "look in Telegram, not SMS"
+    codeSentCallback: (sent) =>
+      console.error(sent.type === 'app' ? t('codeSentApp') : t('codeSentVia', sent.type)),
+    invalidCodeCallback: (what) =>
+      console.error(what === 'code' ? t('codeRejected') : t('passwordRejected')),
   })
 }

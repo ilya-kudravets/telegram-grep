@@ -44,6 +44,7 @@ function Gate() {
   const [busy, setBusy] = useState(false)
   const [connected, setConnected] = useState('')
   const [ask, setAsk] = useState<Ask | null>(null)
+  const [notice, setNotice] = useState('') // where the code went, or why it was rejected
   const [ownCreds, setOwnCreds] = useState(false) // user-supplied pair, not the baked one
   const creds = useRef<AppCreds | undefined>(undefined)
   const client = useRef<BrowserClient | null>(null)
@@ -60,6 +61,11 @@ function Gate() {
     })().catch((e) => setError(String(e)))
   }, [])
 
+  // Telegram's own wording for a leaked app id is `API_ID_PUBLISHED_FLOOD`, which tells a
+  // user nothing — and a baked pair is exactly the pair that can end up in that state.
+  const explain = (message: string) =>
+    message.includes('API_ID_PUBLISHED_FLOOD') ? t('apiIdPublished') : message
+
   // wraps a submit handler: one in-flight action, failures shown instead of thrown
   const guard = (fn: () => Promise<void>) => async (e: React.SyntheticEvent) => {
     e.preventDefault()
@@ -68,7 +74,7 @@ function Gate() {
     try {
       await fn()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(explain(err instanceof Error ? err.message : String(err)))
     } finally {
       setBusy(false)
     }
@@ -126,11 +132,14 @@ function Gate() {
   const startLogin = guard(async () => {
     const prompt = (label: string, secret = false) =>
       new Promise<string>((resolve) => setAsk({ label, secret, resolve }))
+    setNotice('')
     try {
       const { user, session } = await client.current!.login({
         phone: () => prompt(t('askPhone')),
         code: () => prompt(t('askCode')),
         password: () => prompt(t('askPassword'), true),
+        codeSent: (via) => setNotice(via === 'app' ? t('codeSentApp') : t('codeSentVia', via)),
+        rejected: (what) => setNotice(what === 'code' ? t('codeRejected') : t('passwordRejected')),
       })
       await saveSealedSession(await client.current!.seal(session))
       setConnected(user)
@@ -265,6 +274,7 @@ function Gate() {
             }}
           >
             <h2>{ask.label}</h2>
+            {notice && <p>{notice}</p>}
             <input name="answer" type={ask.secret ? 'password' : 'text'} autoFocus required />
             <button type="submit">{t('loginBtn')}</button>
           </form>
