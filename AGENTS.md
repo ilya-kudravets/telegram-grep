@@ -26,9 +26,12 @@ case "$(uname -sm)" in
   "Linux aarch64") ASSET=tg-client-linux-arm64 ;;
   *) echo "unsupported: $(uname -sm)"; exit 1 ;;
 esac
-curl -fsSL "https://github.com/$REPO/releases/latest/download/$ASSET" -o /usr/local/bin/tg-client
-chmod +x /usr/local/bin/tg-client
-tg-client help
+# /usr/local/bin is root-owned on a default macOS — fall back to ~/.local/bin
+BIN=/usr/local/bin; [ -w "$BIN" ] || BIN="$HOME/.local/bin"
+mkdir -p "$BIN"
+curl -fsSL "https://github.com/$REPO/releases/latest/download/$ASSET" -o "$BIN/tg-client"
+chmod +x "$BIN/tg-client"
+"$BIN/tg-client" help   # add $BIN to PATH to drop the prefix
 ```
 
 **From source** (needs [Bun](https://bun.sh)):
@@ -64,6 +67,9 @@ need none of this.
 
 `out` is `1` for messages you sent, `0` for received; `date` is unix seconds.
 A plain search string matches case-insensitively; `/regex/flags` is used verbatim.
+`--limit` defaults to 1000. `sync`'s `messages` is the total cached after the run, not
+the number downloaded. Running `tg-client` with no command is the interactive TUI — it
+prints plain text and creates a template `.env`, so never call it from an agent.
 
 ## Typical flow
 

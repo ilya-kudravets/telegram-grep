@@ -14,6 +14,13 @@ name: Release
 on:
   push:
     branches: [main]
+  # recovery hatch: rebuild and re-upload the binaries for a tag that already exists
+  # (e.g. a runner image was retired and one matrix leg never produced its asset)
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: existing tag to build binaries for, e.g. v0.2.0
+        required: true
 
 permissions:
   contents: write
@@ -21,6 +28,7 @@ permissions:
 
 jobs:
   release-please:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
@@ -33,21 +41,27 @@ jobs:
 
   build:
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created }}
+    # release-please is skipped on a manual dispatch, so !cancelled() keeps this reachable
+    if: ${{ !cancelled() && (needs.release-please.outputs.release_created || inputs.tag) }}
     strategy:
       matrix:
         include:
           - runs-on: macos-14
             asset: tg-client-darwin-arm64
-          - runs-on: macos-13
+          # macos-13 was retired: its jobs sit queued forever and never attach an asset
+          - runs-on: macos-15-intel
             asset: tg-client-darwin-x64
           - runs-on: ubuntu-latest
             asset: tg-client-linux-x64
           - runs-on: ubuntu-24.04-arm
             asset: tg-client-linux-arm64
     runs-on: ${{ matrix.runs-on }}
+    env:
+      TAG: ${{ needs.release-please.outputs.tag_name || inputs.tag }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name || inputs.tag }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -60,4 +74,5 @@ jobs:
       - run: bun build apps/cli/src/index.ts --compile --outfile ${{ matrix.asset }}
       - env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ needs.release-please.outputs.tag_name }}" "${{ matrix.asset }}"
+        # --clobber so a re-dispatch replaces an asset instead of failing on the name
+        run: gh release upload "$TAG" "${{ matrix.asset }}" --clobber
