@@ -90,6 +90,14 @@ describe('syncAll', () => {
     expect(tg.requestedMinIds).toEqual({}) // first sync never runs the incremental path
   })
 
+  test('registers each dialog title, not just its messages', async () => {
+    const cache = openCache(':memory:')
+    await syncAll(fakeClient({ 1: [msg(1, 'a')] }), cache)
+    // the dialog's own displayName — messages carry a different chat.displayName, so an
+    // empty title here means syncAll never upserted the chat row
+    expect([...cache.iterAll()][0]!.chat_title).toBe('Chat 1')
+  })
+
   test('second run skips finished backfill, fetches only new via incremental', async () => {
     const cache = openCache(':memory:')
     await syncAll(fakeClient({ 1: [msg(2, 'b'), msg(1, 'a')] }), cache)
