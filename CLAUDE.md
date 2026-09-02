@@ -21,12 +21,22 @@ cwd stays the root, so `.env` and `data/` live there.
 - `packages/bun/` (`@tg/bun`) — the **Bun platform layer** shared by both apps. Single `@tg/bun`
   barrel; it also re-exports `@tg/core`'s sync/delete so apps have one import.
 - `apps/cli/` (`@tg/cli`) — the TUI + headless JSON CLI.
-- `apps/web/` (`@tg/web`) — the `Bun.serve` server + the browser bundle (`web/`).
+- `apps/web/` (`@tg/web`) — the `Bun.serve` server + the browser bundle (`web/`). **Two entries,
+  one UI**: `web/main.tsx` (self-hosted; `data-server.ts` talks to `/api` + the WebSocket) and
+  `web/static.tsx` (server-less GitHub Pages build; `core-client.ts` drives `@tg/core` against
+  `@mtcute/web` in the tab). `web/app.tsx` knows neither — it takes an injected `DataLayer`
+  (search / delete / status subscription), so a UI change lands in both. The static entry keeps
+  credentials, the cache snapshot and the passphrase-sealed session in IndexedDB (`store.ts` +
+  `crypto.ts`); mtcute's own storage is deliberately unused (it writes the session in plaintext),
+  hence `MemoryStorage` + `exportSession`/`importSession`. `make pages` builds it
+  (`--public-path=./`, so a project-page subpath works); `make serve-pages` proves that.
 
 Root scripts drive the whole repo. `bun run build` compiles the `apps/cli` binary, which reads its
 version from the **root** `package.json`. Tests live beside their package; `bun test` and Stryker
 discover them repo-wide regardless of location. A root `Makefile` wraps these (`make check` =
-typecheck + lint + test).
+typecheck + lint + test). Browser-only wiring that `bun test` can't reach is checked by the
+`apps/web/smoke` page (`make smoke`, driven through the Playwright MCP — **no Playwright
+dependency in the repo**): it prints `PASS`/`FAIL` lines a driver can read.
 
 Credentials resolve in `packages/bun/src/env.ts` (`resolveCreds`): runtime `API_ID`/`API_HASH`
 first, then the pair `make build-public` inlines via `bun build --env='BAKED_*'` as one packed

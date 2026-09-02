@@ -7,8 +7,8 @@
   "tsconfigFile": "tsconfig.json",
   "coverageAnalysis": "off",
   "//ignorePatterns": ".claude/.agents hold symlinked, gitignored AI-skill docs — copying them into the sandbox is pointless and fails with ENOTSUP on a symlink",
+  "//ignorePatterns2": "apps/web/web is NOT ignored: apps/web/tests/crypto.test.ts imports web/crypto.ts, so the sandbox needs it",
   "ignorePatterns": [
-    "apps/web/web",
     "data",
     "reports",
     "dist",

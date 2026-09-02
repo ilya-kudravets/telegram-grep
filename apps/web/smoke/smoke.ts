@@ -3,13 +3,26 @@
 //
 //   1. the portable core actually runs in a browser (no Node/Bun API sneaks in through
 //      @tg/core/cache-memory or @tg/core/search),
-//   2. the IndexedDB store round-trips a snapshot across a page load.
+//   2. the IndexedDB store round-trips a snapshot across a page load,
+//   3. a session sealed under a passphrase survives that load, opens with the right
+//      passphrase, refuses the wrong one, and never lands in storage as plaintext.
 //
 // The page reports one line per check, so a browser driver only has to read text.
 // Load it once to seed, then again: the second load must restore what the first saved.
 import { createMemoryCache } from '@tg/core/cache-memory'
 import { compilePattern, searchCache } from '@tg/core/search'
-import { clearSnapshot, loadSnapshot, saveSnapshot } from '../web/store'
+import { openSession, sealSession } from '../web/crypto'
+import {
+  clearCreds,
+  clearSealedSession,
+  clearSnapshot,
+  loadCreds,
+  loadSealedSession,
+  loadSnapshot,
+  saveCreds,
+  saveSealedSession,
+  saveSnapshot,
+} from '../web/store'
 
 const log = document.getElementById('log') as HTMLElement
 const report = (ok: boolean, line: string) => {
@@ -33,8 +46,15 @@ const seed = [
   },
 ] as const
 
+// stand-ins for a real mtcute session string and the user's own application pair
+const SESSION = `fake-exported-session:${'x'.repeat(64)}`
+const PASSPHRASE = 'correct horse battery staple'
+const CREDS = { apiId: 1234567, apiHash: '0123456789abcdef0123456789abcdef' }
+
 async function main() {
-  if (new URL(location.href).searchParams.has('reset')) await clearSnapshot()
+  if (new URL(location.href).searchParams.has('reset')) {
+    await Promise.all([clearSnapshot(), clearCreds(), clearSealedSession()])
+  }
   const restored = await loadSnapshot()
 
   if (!restored) {
@@ -43,6 +63,14 @@ async function main() {
     cache.upsertChat(-1000000000123, 'Channel')
     cache.insertMessages([...seed])
     await saveSnapshot(cache.snapshot())
+    await saveCreds(CREDS)
+    const sealed = await sealSession(SESSION, PASSPHRASE)
+    await saveSealedSession(sealed)
+    // the record IndexedDB now holds must not contain the session anywhere in it
+    const raw = JSON.stringify(sealed, (_k, v) =>
+      v instanceof Uint8Array ? [...v].map((b) => String.fromCharCode(b)).join('') : v,
+    )
+    report(!raw.includes('fake-exported-session'), 'stored session record holds no plaintext')
     report(cache.count() === 3, `seeded ${cache.count()} messages and saved a snapshot`)
     document.body.dataset.phase = 'seeded'
     return
@@ -65,6 +93,19 @@ async function main() {
 
   const state = cache.backfillState(1)
   report(!state.backfilled, 'per-chat sync state came back intact')
+
+  const creds = await loadCreds()
+  report(
+    creds?.apiId === CREDS.apiId && creds?.apiHash === CREDS.apiHash,
+    'application credentials survived the reload',
+  )
+
+  const sealed = await loadSealedSession()
+  report(sealed !== undefined, 'sealed session came back from IndexedDB')
+  const opened = sealed && (await openSession(sealed, PASSPHRASE))
+  report(opened === SESSION, 'the right passphrase decrypts the session')
+  const refused = sealed && (await openSession(sealed, `${PASSPHRASE}!`))
+  report(refused === null, 'the wrong passphrase is refused')
 
   document.body.dataset.phase = 'restored'
 }

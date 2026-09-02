@@ -5,6 +5,7 @@
   "type": "module",
   "module": "src/server.ts",
   "dependencies": {
+    "@mtcute/web": "^0.32.1",
     "@tg/bun": "workspace:*",
     "@tg/core": "workspace:*",
     "react": "^19.2.7",

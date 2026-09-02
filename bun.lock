@@ -29,6 +29,7 @@
       "name": "@tg/web",
       "version": "0.1.0",
       "dependencies": {
+        "@mtcute/web": "^0.32.1",
         "@tg/bun": "workspace:*",
         "@tg/core": "workspace:*",
         "react": "^19.2.7",
@@ -209,6 +210,8 @@
     "@mtcute/tl-runtime": ["@mtcute/tl-runtime@0.32.0", "", { "dependencies": { "@fuman/utils": "0.0.21", "long": "^5.3.2" } }, "sha512-9TdepMheddBismZDYVng9a0m+D4TqUPWcFc83JiArsXv+pmQiNWzXcoyoTUODUA35i6VOIdO5CuNd8hnKoZHpg=="],
 
     "@mtcute/wasm": ["@mtcute/wasm@0.32.0", "", {}, "sha512-Hkp+h7OYN1GPpJ3HYeQfBM/OgvF0oWCuS2OY0shwigQmNJib2gX7fIH+KDd5UsRNuHptWASawMjKA+wLnGpSvw=="],
+
+    "@mtcute/web": ["@mtcute/web@0.32.1", "", { "dependencies": { "@fuman/net": "0.0.21", "@fuman/utils": "0.0.21", "@mtcute/core": "^0.32.1", "@mtcute/wasm": "^0.32.0" } }, "sha512-MStYvvd7ISOfeUdP9S7jEHKkSZKBvKl+C9wf30sJ4qhYZm1Kw3OajlYiqvRUQO6N3sgr98pfUpkpKUOXXDPo7g=="],
 
     "@opentui/core": ["@opentui/core@0.5.10", "", { "dependencies": { "bun-ffi-structs": "0.3.1", "diff": "9.0.0", "marked": "17.0.1", "string-width": "7.2.0", "strip-ansi": "7.1.2" }, "optionalDependencies": { "@opentui/core-darwin-arm64": "0.5.10", "@opentui/core-darwin-x64": "0.5.10", "@opentui/core-linux-arm64": "0.5.10", "@opentui/core-linux-arm64-musl": "0.5.10", "@opentui/core-linux-x64": "0.5.10", "@opentui/core-linux-x64-musl": "0.5.10", "@opentui/core-win32-arm64": "0.5.10", "@opentui/core-win32-x64": "0.5.10" }, "peerDependencies": { "web-tree-sitter": "0.25.10" } }, "sha512-C3a2UbmefeAjIxAgm4BqjuSxKT4oqutfvYFwVvUgMxmGRHkNbBc/s7sukV0JgwcxFcV3uMFrXxo+E+BQtvuOiw=="],
 
