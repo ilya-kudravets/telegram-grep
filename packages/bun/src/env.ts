@@ -9,12 +9,33 @@ API_ID=
 API_HASH=
 `
 
+// BAKED_* are inlined at build time by `make build-public` (bun build --env='BAKED_*')
+// and are absent from a normal build, so a runtime API_ID/API_HASH always wins — a
+// published binary keeps working after its baked app id is rotated or banned.
+// These two literal `process.env.X` reads are the substitution sites: `bun build
+// --env='BAKED_*'` can only replace the literal expression, so reading them through a
+// parameter (as an injected seam would) silently leaves the binary with no baked pair.
+const BAKED = { apiId: process.env.BAKED_API_ID, apiHash: process.env.BAKED_API_HASH }
+
+export function resolveCreds(
+  env: Record<string, string | undefined> = process.env,
+  baked: { apiId?: string; apiHash?: string } = BAKED,
+) {
+  return {
+    apiId: Number(env.API_ID || baked.apiId),
+    apiHash: env.API_HASH || baked.apiHash,
+  }
+}
+
 // Bun loads .env once at process start, so a file created here only helps the *next* run.
 // Skip it if real env vars already supply the creds (e.g. Docker/CI) — no .env needed there.
 // 'wx' creates atomically and fails if the file already exists, avoiding a
 // check-then-write race between a separate existsSync() and writeFileSync().
-export function ensureEnvFile(path = '.env'): boolean {
-  if (process.env.API_ID && process.env.API_HASH) return false
+// creds is an injected seam: BAKED is captured at import, so a test cannot reach it
+// through process.env
+export function ensureEnvFile(path = '.env', creds = resolveCreds()): boolean {
+  // baked creds count too: a published binary must not nag for a .env it doesn't need
+  if (creds.apiId && creds.apiHash) return false
   try {
     writeFileSync(path, TEMPLATE, { flag: 'wx' })
     return true

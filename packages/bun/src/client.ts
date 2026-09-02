@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs'
 import { networkMiddlewares, TelegramClient } from '@mtcute/bun'
 import { detectLangEnv, makeT } from '@tg/core/i18n'
 import type { SyncProgress } from '@tg/core/sync'
+import { resolveCreds } from './env'
 
 export const lang = detectLangEnv()
 export const t = makeT(lang)
@@ -23,8 +24,7 @@ export function onFlood(fn: (seconds: number) => void) {
 }
 
 export function createClient() {
-  const apiId = Number(process.env.API_ID)
-  const apiHash = process.env.API_HASH
+  const { apiId, apiHash } = resolveCreds()
   if (!apiId || !apiHash) {
     console.error(t('needCreds'))
     process.exit(1)
@@ -52,7 +52,7 @@ export function createClient() {
 // prompt with '*' echo — phone/code/password must not stay on screen
 export function askHidden(question: string): Promise<string> {
   return new Promise((resolve) => {
-    process.stdout.write(`${question} `)
+    process.stderr.write(`${question} `) // stdout stays the headless CLI's JSON channel
     const stdin = process.stdin
     stdin.setRawMode(true)
     stdin.resume()

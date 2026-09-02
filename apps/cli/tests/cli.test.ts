@@ -21,6 +21,36 @@ async function run(argv: string[]) {
   return { code, out: cap.line() as Record<string, unknown> }
 }
 
+// the flags land in process.env, so a test that sets them must put it back — and must
+// await the body, or the restore runs before the assertions do
+async function withEnv(fn: () => Promise<void>): Promise<void> {
+  const { API_ID, API_HASH } = process.env
+  try {
+    await fn()
+  } finally {
+    if (API_ID === undefined) delete process.env.API_ID
+    else process.env.API_ID = API_ID
+    if (API_HASH === undefined) delete process.env.API_HASH
+    else process.env.API_HASH = API_HASH
+  }
+}
+
+test('credential flags are consumed before the command and reach the client', async () => {
+  await withEnv(async () => {
+    const { code, out } = await run(['--api-id', '4242', '--api-hash', 'abc123', 'help'])
+    expect(code).toBe(0)
+    expect(out.usage).toBeDefined() // flags stripped — 'help' still dispatched
+    expect(process.env.API_ID).toBe('4242')
+    expect(process.env.API_HASH).toBe('abc123')
+  })
+})
+
+test('a credential flag with no value errors instead of eating the command', async () => {
+  const { code, out } = await run(['stats', '--api-hash'])
+  expect(code).toBe(1)
+  expect(out.error).toContain('--api-hash')
+})
+
 test('help lists the commands', async () => {
   const { code, out } = await run(['help'])
   expect(code).toBe(0)

@@ -2,20 +2,26 @@ import { afterEach, beforeEach, expect, test } from 'bun:test'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { ensureEnvFile } from '@tg/bun'
+import { ensureEnvFile, resolveCreds } from '@tg/bun'
 
 let dir: string
 let envPath: string
 let savedApiId: string | undefined
 let savedApiHash: string | undefined
+let savedBakedId: string | undefined
+let savedBakedHash: string | undefined
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'tg-env-'))
   envPath = join(dir, '.env')
   savedApiId = process.env.API_ID
   savedApiHash = process.env.API_HASH
+  savedBakedId = process.env.BAKED_API_ID
+  savedBakedHash = process.env.BAKED_API_HASH
   delete process.env.API_ID
   delete process.env.API_HASH
+  delete process.env.BAKED_API_ID
+  delete process.env.BAKED_API_HASH
 })
 
 afterEach(() => {
@@ -24,6 +30,10 @@ afterEach(() => {
   else process.env.API_ID = savedApiId
   if (savedApiHash === undefined) delete process.env.API_HASH
   else process.env.API_HASH = savedApiHash
+  if (savedBakedId === undefined) delete process.env.BAKED_API_ID
+  else process.env.BAKED_API_ID = savedBakedId
+  if (savedBakedHash === undefined) delete process.env.BAKED_API_HASH
+  else process.env.BAKED_API_HASH = savedBakedHash
 })
 
 test('creates a template .env when none exists and no creds are in the environment', () => {
@@ -41,5 +51,29 @@ test('skips creation when creds are already supplied via real env vars', () => {
   process.env.API_ID = '1'
   process.env.API_HASH = 'x'
   expect(ensureEnvFile(envPath)).toBe(false)
+  expect(existsSync(envPath)).toBe(false)
+})
+
+const baked = { apiId: '2', apiHash: 'baked' }
+
+test('runtime credentials win over the ones baked into a published binary', () => {
+  expect(resolveCreds({ API_ID: '1', API_HASH: 'live' }, baked)).toEqual({
+    apiId: 1,
+    apiHash: 'live',
+  })
+})
+
+test('baked credentials are the fallback when the environment has none', () => {
+  expect(resolveCreds({}, baked)).toEqual({ apiId: 2, apiHash: 'baked' })
+})
+
+test('with neither pair the id is not a number, which createClient rejects', () => {
+  const { apiId, apiHash } = resolveCreds({}, {})
+  expect(apiId).toBeNaN()
+  expect(apiHash).toBeUndefined()
+})
+
+test('a baked-in binary needs no .env, so none is written', () => {
+  expect(ensureEnvFile(envPath, { apiId: 2, apiHash: 'baked' })).toBe(false)
   expect(existsSync(envPath)).toBe(false)
 })

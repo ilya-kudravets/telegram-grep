@@ -50,9 +50,14 @@ Config is read from the current directory:
 - A session: an existing `data/session` from a prior interactive login, **or**
   `SESSION_STRING` in `.env` (exported from mtcute) for non-interactive login.
 
+`API_ID`/`API_HASH` can also be passed as flags for a single run, ahead of the command:
+`tg-client --api-id N --api-hash H sync`. They override `.env`; argv is visible in `ps`,
+so prefer `.env` when the value outlives the run. A binary built with `make build-public`
+carries a fallback pair and needs neither.
+
 Set `SESSION_STRING` before running `sync`/`delete` from an agent — otherwise they
-fall back to an interactive phone/code prompt and block on stdin. `search`/`stats`
-need none of this.
+fall back to an interactive phone/code prompt and block on stdin (the prompt goes to
+stderr, so stdout stays parseable). `search`/`stats` need none of this.
 
 ## Commands
 

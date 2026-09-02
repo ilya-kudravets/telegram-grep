@@ -25,6 +25,14 @@ version from the **root** `package.json`. Tests live beside their package; `bun 
 discover them repo-wide regardless of location. A root `Makefile` wraps these (`make check` =
 typecheck + lint + test).
 
+Credentials resolve in `packages/bun/src/env.ts` (`resolveCreds`): runtime `API_ID`/`API_HASH`
+first, then the pair `make build-public` inlines via `bun build --env='BAKED_*'`. That flag only
+substitutes **literal** `process.env.BAKED_*` expressions, so those two reads must stay literal —
+routing them through a parameter compiles fine and ships a binary with no baked pair. Every creds
+check goes through `resolveCreds` (`createClient`, `ensureEnvFile`, the CLI's `authedClient`);
+adding a fourth reader means using it too. `--api-id`/`--api-hash` are stripped in `runCli` before
+dispatch and written into `process.env`.
+
 ## APIs
 
 - `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.

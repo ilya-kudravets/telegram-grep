@@ -32,12 +32,38 @@ Any subcommand runs headless and prints one line of JSON — no TUI. `tg-client 
 - `bun start help` — usage JSON
 - `bun start --version` — `{version}`
 
+Credentials for `sync`/`delete` can also come as flags — `bun start sync --api-id N --api-hash H`
+— which override `.env` for that run. argv is visible in `ps`, so prefer `.env` for anything
+long-lived.
+
 `search`/`stats` read `data/cache.db` directly and need no Telegram connection.
 Build a standalone binary with `bun run build` (→ `dist/tg-client`); merging the
 release PR publishes per-platform binaries (see **Releases** below). See
 [AGENTS.md](AGENTS.md) for the agent setup guide and the
 [`telegram-grep-cli` skill](skills/telegram-grep-cli/SKILL.md) that downloads
 that binary and documents the commands.
+
+## Distributing a binary
+
+`make build` produces a binary with no credentials in it: the user supplies `API_ID`/`API_HASH`
+via `.env` or the flags above. That is the default and the safest option — each user's own app id
+carries their own usage.
+
+`make build-public` bakes a fallback pair in for users who shouldn't have to register one:
+
+```bash
+BAKED_API_ID=… BAKED_API_HASH=… make build-public
+```
+
+- A runtime `API_ID`/`API_HASH` (or `--api-id`/`--api-hash`) still wins, so the baked pair can be
+  rotated without breaking existing installs.
+- `--env='BAKED_*'` inlines **only** that prefix — nothing else from the build shell reaches the
+  binary. The two `process.env.BAKED_*` reads in `packages/bun/src/env.ts` are the substitution
+  sites; reading them indirectly would silently ship a binary with no baked pair.
+- **The baked pair is extractable** (`strings` finds it in seconds) — that is inherent to any
+  client that must use the key itself, not a gap to be closed with encryption. Register an app id
+  for the release instead of reusing your own: if it gets flagged for someone else's misuse,
+  Telegram restricts that app id, not your account.
 
 ## Testing
 

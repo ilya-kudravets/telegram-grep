@@ -44,8 +44,14 @@ The binary reads its config from the current directory:
 - A session: either an existing `data/session` (created by a prior interactive login),
   or `SESSION_STRING` in `.env` (exported from mtcute) for non-interactive login.
 
+Both can also be passed as flags, before the command:
+`tg-client --api-id N --api-hash H sync`. They override `.env` for that run — but argv is
+visible in `ps`, so prefer `.env` for anything long-lived. A binary built for public
+distribution may carry a fallback pair and need neither.
+
 Without a session, `sync`/`delete` fall back to an interactive phone/code prompt — set
-`SESSION_STRING` before running them from an agent so they don't block on stdin.
+`SESSION_STRING` before running them from an agent so they don't block on stdin (the prompt
+itself goes to stderr, so stdout stays a parseable JSON line).
 `search`/`stats` need none of this; they just read `data/cache.db`.
 
 ## 3. Commands
