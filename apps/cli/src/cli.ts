@@ -10,6 +10,7 @@ import {
   formatSyncLine,
   login,
   openCache,
+  resolveCreds,
   searchCache,
   syncAll,
 } from '@tg/bun'
@@ -24,7 +25,11 @@ function openDb() {
 }
 
 const USAGE = {
-  usage: 'tg-client <command>',
+  usage: 'tg-client [--api-id N] [--api-hash H] <command>',
+  flags: {
+    '--api-id/--api-hash':
+      'Telegram app credentials for this run, overriding .env — argv is visible in `ps`, so prefer .env for anything long-lived',
+  },
   commands: {
     search: 'search "<regex|/pat/flags>" [--limit N] — search the cache (offline), JSON matches',
     stats: 'stats — number of cached messages (offline)',
@@ -46,8 +51,9 @@ function takeFlag(args: string[], flag: string): [string | undefined, string[]] 
 // and turn any login failure (e.g. setRawMode throwing on a non-TTY when no session
 // exists) into a JSON error instead of a bare stack trace + nonzero exit.
 async function authedClient() {
-  if (!process.env.API_ID || !process.env.API_HASH) {
-    out({ error: 'missing API_ID/API_HASH in .env' })
+  const { apiId, apiHash } = resolveCreds()
+  if (!apiId || !apiHash) {
+    out({ error: 'missing API_ID/API_HASH — pass --api-id/--api-hash or put them in .env' })
     return null
   }
   const tg = createClient()
@@ -62,7 +68,20 @@ async function authedClient() {
 }
 
 export async function runCli(argv: string[]): Promise<number> {
-  const [cmd, ...args] = argv
+  // Credentials may arrive as flags for a one-off headless run (an agent with no .env,
+  // or a published binary whose baked app id was rotated). ponytail: they go straight
+  // into process.env so createClient/login stay untouched — this is a one-shot process.
+  const [flagId, afterId] = takeFlag(argv, '--api-id')
+  const [flagHash, afterHash] = takeFlag(afterId, '--api-hash')
+  const missingValue = (flag: string, value?: string) => argv.includes(flag) && !value
+  if (missingValue('--api-id', flagId) || missingValue('--api-hash', flagHash)) {
+    out({ error: '--api-id and --api-hash each need a value' })
+    return 1
+  }
+  if (flagId) process.env.API_ID = flagId
+  if (flagHash) process.env.API_HASH = flagHash
+
+  const [cmd, ...args] = afterHash
 
   switch (cmd) {
     case 'search': {
