@@ -1,9 +1,12 @@
 {
   "name": "telegram-client",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "private": true,
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "devDependencies": {
     "@biomejs/biome": "^2.5.11",
     "@stryker-mutator/core": "^10.0.0",
