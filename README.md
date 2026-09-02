@@ -67,10 +67,37 @@ BAKED_API_ID=… BAKED_API_HASH=… make build-public
   and rotate it if it gets flagged — if someone misuses it, Telegram restricts that app id, not
   your account.
 
+## Static browser client (GitHub Pages)
+
+The same client with **no server at all**: `apps/web/web/static.html` bundles the domain, talks to
+Telegram straight from the tab (`@mtcute/web`), and keeps the cache in IndexedDB.
+
+- `make pages` builds it into `dist/pages/` with relative asset paths, so it works from a domain
+  root *and* from a project-page subpath. `make serve-pages` serves that build under
+  `/telegram-grep/` on `127.0.0.1:8101` — the check that no asset request escapes the prefix.
+- `.github/workflows/pages.yml` publishes it on every push to `main` (and on manual dispatch),
+  once Pages is enabled for the repo with **GitHub Actions** as the source.
+- **Nothing is baked into the bundle.** First launch asks for your own `api_id`/`api_hash`
+  (my.telegram.org → API development tools); they stay in that browser. "Forget credentials"
+  removes them.
+- The Telegram session is stored **encrypted under a passphrase you choose** (WebCrypto:
+  PBKDF2-SHA256, 250k iterations → AES-GCM). Every load shows an unlock prompt; the derived key
+  lives only in the page. **There is no recovery** — forget the passphrase and your only option is
+  "Discard session" and a fresh login (the cached history stays, and stays searchable offline).
+- Caveat, stated plainly: encryption at rest protects the session from someone reading the
+  browser's storage, **not** from script running in the page while it is unlocked. No browser
+  client can protect against that. Host your own copy if you don't want to trust someone else's.
+- mtcute's wasm crypto blob is imported as a bundled asset (`with { type: 'file' }`), because
+  its own `new URL('./mtcute.wasm', import.meta.url)` points into the bundle's directory after
+  bundling — a 404 that shows up as a WebAssembly "expected magic word" error.
+- The self-hosted server path (below) is unchanged — both entries ship, and the search/delete UI
+  is literally the same component with a different data layer injected.
+
 ## Testing
 
 - `bun test` — unit tests.
 - `bun run test:mutation` — StrykerJS mutation testing (config in `stryker.conf.json`), kept at 100%. Uses the command runner over `bun test` plus the TypeScript checker; reports go to `reports/mutation/` (gitignored).
+- `make smoke` — serves `apps/web/smoke/` on `127.0.0.1:8100`. It checks what `bun test` cannot: that the portable core runs in a browser, that the IndexedDB store round-trips a cache snapshot across a page load, and that a session sealed under a passphrase survives that load (right passphrase opens it, wrong one is refused, no plaintext in the stored record). Load it once to seed, then again to restore (`?reset=1` clears the store); every check prints a `PASS`/`FAIL` line, so any browser or driver can read the result. Not in CI — that would mean a browser download on every run.
 
 ## CI & security
 
@@ -78,6 +105,7 @@ GitHub Actions (`.github/workflows/`, deps cached across runs):
 - **ci.yml** — `bun run typecheck` + `bun test` on every push/PR; a separate `bun audit --prod` job fails the build on vulnerable production dependencies.
 - **lint.yml** — Biome lint + format check (`biome ci`, config in `biome.json`).
 - **codeql.yml** — CodeQL SAST (`security-extended`) on push/PR and weekly.
+- **pages.yml** — builds and deploys the static browser client (see above).
 - **dependabot.yml** — weekly PRs bumping dependencies (npm/`bun.lock`) and the actions themselves.
 - **release.yml** — see below.
 

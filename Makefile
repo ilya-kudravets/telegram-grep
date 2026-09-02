@@ -1,4 +1,4 @@
-.PHONY: install start web test test-mutation typecheck lint format build build-public check clean distclean
+.PHONY: install start web smoke pages serve-pages test test-mutation typecheck lint format build build-public check clean distclean
 
 install:
 	bun install
@@ -8,6 +8,11 @@ start:
 
 web:
 	bun run web
+
+# browser smoke page: the IndexedDB store and core-in-a-browser, which `bun test`
+# cannot reach. Serve it, then drive it with a browser (or the Playwright MCP).
+smoke:
+	bun apps/web/smoke/serve.ts
 
 test:
 	bun test
@@ -40,6 +45,17 @@ build-public:
 	BAKED_CREDS="$$(bun -e 'import { packCreds } from "./packages/bun/src/env.ts"; \
 		process.stdout.write(packCreds(process.env.BAKED_API_ID, process.env.BAKED_API_HASH))')" \
 		bun build apps/cli/src/index.ts --compile --env='BAKED_*' --outfile dist/tg-client
+
+# Static, server-less build for GitHub Pages (or any file host). Relative asset paths
+# (--public-path=./) so it also works from a project-page subpath like /telegram-grep/.
+# Nothing is baked in: the user supplies their own api_id/api_hash at first launch.
+pages:
+	bun run build:pages
+
+# Serve the built bundle from a subpath, the way Pages does — the check that no asset
+# request escapes the prefix.
+serve-pages: pages
+	bun apps/web/smoke/serve-pages.ts
 
 check: typecheck lint test
 

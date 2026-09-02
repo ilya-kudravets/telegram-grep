@@ -1,6 +1,5 @@
 import { LANGS, type Lang, makeT, normalizeLang } from '@tg/core/i18n'
 import { useEffect, useRef, useState } from 'react'
-import { createRoot } from 'react-dom/client'
 import './app.css'
 
 // '' = follow the browser; otherwise a forced locale, persisted in localStorage
@@ -12,7 +11,7 @@ function resolveLang(pref: '' | Lang): Lang {
   return pref || normalizeLang(navigator.language) || 'en'
 }
 
-interface Row {
+export interface Row {
   chat_id: number
   id: number
   date: number
@@ -21,7 +20,7 @@ interface Row {
   chat_title: string
 }
 
-interface Status {
+export interface Status {
   sync: {
     chatTitle: string
     chatsDone: number
@@ -38,28 +37,22 @@ interface Status {
 
 const keyOf = (r: Row) => `${r.chat_id}:${r.id}`
 
-// grab ?token=… from the URL on first load, persist it, strip it from the address bar
-function bootstrapToken(): string {
-  const url = new URL(location.href)
-  const fromUrl = url.searchParams.get('token')
-  if (fromUrl) {
-    localStorage.setItem('apiToken', fromUrl)
-    url.searchParams.delete('token')
-    history.replaceState(null, '', url.pathname + url.search)
-  }
-  return localStorage.getItem('apiToken') ?? ''
-}
-const TOKEN = bootstrapToken()
-
-// every API call carries the bearer token
-function apiFetch(path: string, opts: RequestInit = {}) {
-  return fetch(path, {
-    ...opts,
-    headers: { ...opts.headers, authorization: `Bearer ${TOKEN}` },
-  })
+/**
+ * Everything this view needs from a backend — the whole surface, deliberately three
+ * calls wide. `data-server.ts` implements it over the self-hosted API + WebSocket;
+ * `core-client.ts` implements it against @tg/core in the browser, with no server at all.
+ */
+export interface DataLayer {
+  search(query: string): Promise<{ rows: Row[] } | { error: string }>
+  del(targets: { chat_id: number; id: number }[]): Promise<{
+    deleted: number
+    errors?: { error: string }[]
+  }>
+  /** Pushes a status snapshot on subscribe and on every change; returns an unsubscribe. */
+  subscribeStatus(onStatus: (s: Status) => void): () => void
 }
 
-function App() {
+export function App({ data }: { data: DataLayer }) {
   const [q, setQ] = useState('')
   const [rows, setRows] = useState<Row[]>([])
   const [searchError, setSearchError] = useState('')
@@ -82,14 +75,13 @@ function App() {
       setSearchError('')
       return
     }
-    const res = await apiFetch(`/api/search?q=${encodeURIComponent(query)}`)
-    const data = (await res.json()) as { rows?: Row[]; error?: string }
-    if (!res.ok) {
-      setSearchError(data.error ?? t('invalidRegex'))
+    const res = await data.search(query)
+    if ('error' in res) {
+      setSearchError(res.error || t('invalidRegex'))
       return
     }
     setSearchError('')
-    setRows(data.rows ?? [])
+    setRows(res.rows)
     setMarked(new Set())
   }
 
@@ -108,40 +100,23 @@ function App() {
     return () => clearTimeout(timer)
   }, [q])
 
-  // Статус приходит push-ом по WebSocket — сервер шлёт снимок при подключении и дальше
-  // на каждое изменение (sync, realtime, flood-wait). Опроса нет.
+  // Статус приходит push-ом от слоя данных: сервер шлёт снимок по WebSocket, браузерный
+  // клиент — из своего прогресса синхронизации. Опроса нет ни там, ни там.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: subscribe once; the query is read through refs
   useEffect(() => {
-    let ws: WebSocket | null = null
-    let retry: ReturnType<typeof setTimeout> | undefined
-    let stopped = false
-
-    const connect = () => {
-      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
-      ws = new WebSocket(`${proto}//${location.host}/ws?token=${encodeURIComponent(TOKEN)}`)
-      ws.onmessage = (ev) => {
-        const s = JSON.parse(ev.data as string) as Status
-        setStatus(s)
-        if (s.cached === lastCached.current) return
-        lastCached.current = s.cached
-        // Кэш вырос — повторяем активный поиск. Дебаунс, чтобы догоняющий поток
-        // апдейтов не превратился в запрос на каждое сообщение.
-        if (!qRef.current.trim()) return
-        clearTimeout(researchTimer.current)
-        researchTimer.current = setTimeout(() => runSearchRef.current(qRef.current), 300)
-      }
-      // сервер перезапускается (bun --hot) — молча переподключаемся
-      ws.onclose = () => {
-        if (!stopped) retry = setTimeout(connect, 1000)
-      }
-      ws.onerror = () => ws?.close()
-    }
-    connect()
-
-    return () => {
-      stopped = true
-      clearTimeout(retry)
+    const unsubscribe = data.subscribeStatus((s) => {
+      setStatus(s)
+      if (s.cached === lastCached.current) return
+      lastCached.current = s.cached
+      // Кэш вырос — повторяем активный поиск. Дебаунс, чтобы догоняющий поток
+      // апдейтов не превратился в запрос на каждое сообщение.
+      if (!qRef.current.trim()) return
       clearTimeout(researchTimer.current)
-      ws?.close()
+      researchTimer.current = setTimeout(() => runSearchRef.current(qRef.current), 300)
+    })
+    return () => {
+      unsubscribe()
+      clearTimeout(researchTimer.current)
     }
   }, [])
 
@@ -162,13 +137,7 @@ function App() {
     if (!confirm(t('confirmDeleteWeb', targets.length))) return
     setBusy(true)
     try {
-      const res = (await (
-        await apiFetch('/api/delete', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ targets }),
-        })
-      ).json()) as { deleted: number; errors?: { error: string }[] }
+      const res = await data.del(targets)
       setNotice(
         t('deleted', res.deleted) +
           (res.errors?.length ? t('deleteErrors', res.errors.length, res.errors[0]!.error) : ''),
@@ -275,5 +244,3 @@ function App() {
     </div>
   )
 }
-
-createRoot(document.getElementById('root')!).render(<App />)

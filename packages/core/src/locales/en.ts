@@ -48,6 +48,30 @@ export const en = {
   invalidRegex: 'invalid regex',
   language: 'Language',
   systemLang: 'System',
+  // static (browser-only) client
+  credsTitle: 'Your Telegram application',
+  credsHint: 'Create one at my.telegram.org/apps — it stays in this browser only.',
+  apiIdLabel: 'api_id',
+  apiHashLabel: 'api_hash',
+  saveBtn: 'Save',
+  unlockTitle: 'Unlock your session',
+  passphraseLabel: 'Passphrase',
+  unlockBtn: 'Unlock',
+  wrongPassphrase: 'wrong passphrase',
+  sealTitle: 'Encrypt your session',
+  sealHint:
+    'This passphrase encrypts the session in this browser. There is no recovery: forget it and you log in again.',
+  passphraseTooShort: 'at least {0} characters',
+  loginTitle: 'Log in to Telegram',
+  loginStart: 'Start',
+  loginBtn: 'Continue',
+  loginFailed: 'login failed: {0}',
+  connectedAs: 'connected as {0}',
+  offlineOnly: 'not connected — searching the local cache',
+  syncBtn: 'Sync',
+  discardSession: 'Discard session',
+  forgetCreds: 'Forget credentials',
+  working: 'working…',
 }
 
 export type Dict = typeof en
