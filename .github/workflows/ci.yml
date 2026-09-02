@@ -30,24 +30,6 @@ jobs:
       - run: bun run typecheck
       - run: bun test
 
-  # apps/mobile is excluded from the root tsc (own RN toolchain), so `bun run
-  # typecheck` above never sees it — mirrors `make mobile-typecheck`. Without this
-  # job a dep bump that only breaks the RN app merges on green CI.
-  mobile-typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-      - uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-      - run: bun install --frozen-lockfile
-      - run: cd apps/mobile && bunx tsc --noEmit
-
   audit:
     runs-on: ubuntu-latest
     steps:
@@ -63,11 +45,4 @@ jobs:
       - run: bun install --frozen-lockfile
       # fails the job on known-vulnerable production dependencies
       # (dev-only tooling vulns are handled by Dependabot bumps, not a release gate)
-      #
-      # ignored: GHSA-w5hq-g745-h8pq (uuid <11.1.1 buffer bounds check in v3/v5/v6
-      # when `buf` is provided). Reaches us only via xcode@3 → @expo/config-plugins,
-      # a build-time tool run during `expo prebuild`; it calls uuid.v4() with no buf,
-      # and none of it is bundled into the shipped app. xcode pins uuid ^7, so the
-      # only "fix" is force-bumping a transitive build dep across a major — riskier
-      # than the moderate it clears. Drop this when the expo/xcode chain moves off it.
-      - run: bun audit --prod --ignore GHSA-w5hq-g745-h8pq
+      - run: bun audit --prod

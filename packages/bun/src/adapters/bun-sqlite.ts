@@ -1,6 +1,6 @@
 // Platform adapter: implements the `Cache` port on top of bun:sqlite.
-// An RN app would add a sibling adapter (op-sqlite/expo-sqlite) reusing the same
-// SQL from ../core/cache — the domain never changes.
+// A second driver would add a sibling adapter reusing the same SQL from
+// ../core/cache — the domain never changes.
 import { Database } from 'bun:sqlite'
 import { toggleChannelIdMark } from '@mtcute/core/utils.js'
 import {

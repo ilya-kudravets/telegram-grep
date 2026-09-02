@@ -7,11 +7,8 @@
 //
 //   testCache('bun:sqlite', () => openCache(':memory:'))
 //
-// The expo-sqlite adapter will call the same function once there is a runner that can
-// execute it on-device; until then the suite is exercised through the Bun adapter only.
-//
-// bun:test is used as the harness because that is what runs today; an RN runner would
-// need its own thin wrapper around describe/test/expect.
+// ponytail: only the Bun adapter calls it today — it stays a shared suite because a
+// second driver (Postgres, a browser-side cache) would otherwise copy it verbatim.
 import { describe, expect, test } from 'bun:test'
 import type { Cache, CachedMessage } from '../src/cache'
 

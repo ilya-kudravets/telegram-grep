@@ -8,7 +8,6 @@
   "coverageAnalysis": "off",
   "//ignorePatterns": ".claude/.agents hold symlinked, gitignored AI-skill docs — copying them into the sandbox is pointless and fails with ENOTSUP on a symlink",
   "ignorePatterns": [
-    "apps/mobile",
     "apps/web/web",
     "data",
     "reports",

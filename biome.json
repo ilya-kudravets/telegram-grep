@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.5/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.11/schema.json",
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
     "includes": [
@@ -7,11 +7,7 @@
       "packages/*/tests/**",
       "apps/*/src/**",
       "apps/*/web/**",
-      "apps/*/tests/**",
-      "apps/mobile/App.tsx",
-      "!apps/mobile/ios",
-      "!apps/mobile/android",
-      "!apps/mobile/.expo"
+      "apps/*/tests/**"
     ]
   },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
