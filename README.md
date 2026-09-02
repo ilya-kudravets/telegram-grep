@@ -95,6 +95,11 @@ Telegram straight from the tab (`@mtcute/web`), and keeps the cache in IndexedDB
   passphrase is asked for before the Telegram login, never stored, and the derived key lives only
   in the page — so a reload always asks again. **There is no recovery:** forget it and the only way
   back is "Erase all data" and a fresh login.
+- The login prompts say **where Telegram sent the code**: `app` delivery means it went into
+  Telegram on another device you are logged in on, not by SMS — which is what "the code never
+  arrived" almost always turns out to be. A rejected code or password says so too, instead of
+  silently reopening the same field. If Telegram answers `API_ID_PUBLISHED_FLOOD`, the page
+  explains it: that app id has been published publicly and you need your own.
 - Two exits, and they mean different things: **Log out** revokes the session on Telegram's side
   first and only then wipes this browser (if the revoke fails, nothing local is touched, so you
   can retry); **Erase all data** needs no network and no key — it deletes the cache, the session

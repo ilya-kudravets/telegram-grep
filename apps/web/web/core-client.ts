@@ -21,6 +21,16 @@ export interface LoginPrompts {
   phone(): Promise<string>
   code(): Promise<string>
   password(): Promise<string>
+  /**
+   * How Telegram actually delivered the code. Worth showing: `'app'` means it went into
+   * Telegram on another device the user is logged in on, *not* by SMS — the single most
+   * common reason someone concludes the code never arrived. mtcute's default for this is
+   * a console.log nobody in a browser will ever see.
+   */
+  codeSent?(via: string): void
+  /** What was just entered got rejected and mtcute is asking again — say so, or the form
+   * silently reappearing looks like nothing happened. */
+  rejected?(what: 'code' | 'password'): void
 }
 
 export interface BrowserClient {
@@ -139,6 +149,8 @@ export async function createBrowserClient(creds: AppCreds, vault: Vault): Promis
         phone: () => prompts.phone(),
         code: () => prompts.code(),
         password: () => prompts.password(),
+        codeSentCallback: (sent) => prompts.codeSent?.(sent.type),
+        invalidCodeCallback: (what) => prompts.rejected?.(what),
       })
       await attach()
       return { user: me.displayName, session: await tg.exportSession() }
