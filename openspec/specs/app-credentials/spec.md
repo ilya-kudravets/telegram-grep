@@ -60,3 +60,27 @@ A build MAY carry a fallback pair. It MUST be stored packed rather than as a lit
 #### Scenario: The substitution site stays literal
 - **WHEN** the baked value is read in code
 - **THEN** it is read as a literal environment expression the bundler can substitute, with no wrapper or guard that would discard the substituted value, since either mistake silently ships an artifact with no baked pair
+
+### Requirement: What the Bun side writes to disk is owner-only
+
+The session file grants full account access with no phone, no code and no second factor, the message cache holds every message ever synced, and the `.env` template invites an api pair into it. None of the three is encrypted on the Bun side, so their file modes are the whole defence and MUST be owner-only.
+
+The directory holding them MUST be created owner-only and MUST also be tightened when it already exists, since an existing directory ignores the mode a create asks for and every earlier install has a world-readable one. Every path that opens the data directory MUST go through the same helper, so a new caller cannot forget.
+
+Full-disk encryption is not a substitute: it covers a powered-off stolen machine, not another local account, a backup daemon running as another user, or a synced folder handing the archive to a cloud provider.
+
+#### Scenario: A fresh install
+- **WHEN** the data directory is created
+- **THEN** it is owner-only, and the session and cache files inside it are owner-only
+
+#### Scenario: An install that predates this
+- **WHEN** the data directory already exists with looser permissions
+- **THEN** opening it tightens it rather than leaving what it found
+
+#### Scenario: A cache with no file
+- **WHEN** the cache is opened in memory rather than on disk
+- **THEN** there is nothing to restrict and the open still succeeds
+
+#### Scenario: The credentials template
+- **WHEN** a template `.env` is created
+- **THEN** it is owner-only, because it exists to be filled in with an api pair

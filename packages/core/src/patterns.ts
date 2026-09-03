@@ -5,11 +5,15 @@
 // Every pattern is written in the '/…/flags' form compilePattern() understands, and each
 // label is an i18n key rather than text — the list is UI, not data.
 //
-// Two regex facts shape how these are written:
+// Three regex facts shape how these are written:
 // - `\b` is ASCII-only in JS, so `\bинн\b` never matches "инн 123". Cyrillic words are
 //   bounded with `(?<![а-яё])…(?![а-яё])` instead.
 // - a case-insensitive `/i` would turn prefix shapes like `AKIA` and `ghp_` into noise, so
 //   the format-based templates carry no flags at all.
+// - an unanchored pattern is retried at every offset, so a long run of chars its first
+//   class accepts costs one full failing scan *per offset* — quadratic. `tplEmails` opens
+//   with `(?<![\w.+-])` for exactly that reason: only a real word start pays for the domain
+//   scan. Matters because searchCache tests every cached row synchronously.
 import type { Key } from './locales/en'
 
 export interface PatternTemplate {
@@ -73,7 +77,7 @@ export const DEFAULT_PATTERNS: PatternTemplate[] = [
     label: 'tplDocs',
     pattern: `/${CYR}(паспорт|снилс|инн${CYR_END}|водительск|загран|свидетельств[оа] о|полис${CYR_END})|\\b(passport|ssn|social security|driver'?s? licen[cs]e|national id|id card)\\b/i`,
   },
-  { label: 'tplEmails', pattern: '/[\\w.+-]+@[\\w-]+(\\.[\\w-]+)*\\.[a-z]{2,}/i' },
+  { label: 'tplEmails', pattern: '/(?<![\\w.+-])[\\w.+-]+@(?:[\\w-]+\\.)+[a-z]{2,}/i' },
   {
     // international +… form, or a Russian 8-xxx-xxx-xx-xx
     label: 'tplPhones',

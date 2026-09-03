@@ -104,3 +104,19 @@ The cache MUST remove messages named by a deletion update. When the update ident
 #### Scenario: Deletion in a private chat or group
 - **WHEN** a deletion update carries no channel id
 - **THEN** the named ids are removed from every chat that holds them
+
+#### Scenario: An id list too large for one query
+- **WHEN** a deletion names more ids than the storage engine can bind to a single statement
+- **THEN** all of them are still removed, and no partial deletion is observable
+
+### Requirement: Reconciling against upstream
+
+The cache MUST be able to report every message id it holds for one chat, so a full re-walk can work out what Telegram no longer has, and MUST be able to drop a cleared prefix of a chat's history in one step.
+
+#### Scenario: Listing what is held
+- **WHEN** a chat's cached ids are requested
+- **THEN** only that chat's ids are returned, and a chat with nothing cached reports an empty list rather than failing
+
+#### Scenario: A cleared prefix
+- **WHEN** history up to a given message is reported gone
+- **THEN** that message and every older one in the chat are removed, and other chats are untouched

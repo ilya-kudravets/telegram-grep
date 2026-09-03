@@ -10,6 +10,15 @@ import {
 import type { DeleteResult, DeleteTarget, SearchRow } from '@tg/bun'
 import type { T } from '@tg/core/i18n'
 
+// Peer names and message text are attacker-controlled — anyone who can message the user
+// picks them — and opentui strips escape sequences only from pasted *input*, never on the
+// render path. A raw ESC therefore reaches the terminal, where it can repaint the status
+// line (a forged "deleted N") or drive OSC 52. `\s` misses C0, so strip the control ranges
+// explicitly, and do it in the one place every such string passes through.
+// biome-ignore lint/suspicious/noControlCharactersInRegex: matching them is the point
+const UNPRINTABLE = /[\s\u0000-\u001f\u007f-\u009f]+/g
+export const plain = (s: string) => s.replace(UNPRINTABLE, ' ')
+
 export interface TuiDeps {
   search: (pattern: string) => SearchRow[]
   del: (targets: DeleteTarget[]) => Promise<DeleteResult>
@@ -83,8 +92,8 @@ export async function runTui(t: T, deps: TuiDeps) {
   function renderList() {
     const keep = list.getSelectedIndex()
     list.options = rows.map((r) => ({
-      name: `${marked.has(keyOf(r)) ? '✓' : ' '} ${r.chat_title} · ${new Date(r.date * 1000).toISOString().slice(0, 16).replace('T', ' ')} · ${r.sender}`,
-      description: r.text.replace(/\s+/g, ' ').slice(0, 120),
+      name: `${marked.has(keyOf(r)) ? '✓' : ' '} ${plain(r.chat_title)} · ${new Date(r.date * 1000).toISOString().slice(0, 16).replace('T', ' ')} · ${plain(r.sender)}`,
+      description: plain(r.text).slice(0, 120),
       value: r,
     }))
     if (keep >= 0 && keep < rows.length) list.setSelectedIndex(keep)

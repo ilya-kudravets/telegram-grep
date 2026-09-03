@@ -1,5 +1,14 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -7,6 +16,8 @@ import {
   packCreds,
   resolveCreds,
   searchKinds,
+  secureDataDir,
+  secureFile,
   syncChannels,
   unpackCreds,
 } from '@tg/bun'
@@ -111,4 +122,35 @@ test('SEARCH_KINDS parses a list and ignores names this build does not know', ()
   // an all-nonsense value yields an empty set, which searches only unlabelled chats —
   // deliberately not the same as "unset", so a typo is visible rather than silent
   expect(searchKinds({ SEARCH_KINDS: 'nonsense' })).toEqual(new Set())
+})
+
+// data/session is the account itself and data/cache.db is every message; neither is
+// encrypted on the Bun side, so these modes are the only thing protecting them.
+test('secureDataDir creates the directory owner-only', () => {
+  const dir = join(mkdtempSync(join(tmpdir(), 'tgc-')), 'data')
+  secureDataDir(dir)
+  expect(statSync(dir).mode & 0o777).toBe(0o700)
+})
+
+test('secureDataDir tightens a directory that already exists too', () => {
+  // the case that actually matters: everyone upgrading has a 0755 data/ already, and
+  // mkdirSync's mode is ignored for an existing directory
+  const dir = join(mkdtempSync(join(tmpdir(), 'tgc-')), 'data')
+  mkdirSync(dir)
+  chmodSync(dir, 0o755)
+  secureDataDir(dir)
+  expect(statSync(dir).mode & 0o777).toBe(0o700)
+})
+
+test('secureFile makes a file owner-only', () => {
+  const path = join(mkdtempSync(join(tmpdir(), 'tgc-')), 'session')
+  writeFileSync(path, 'x')
+  chmodSync(path, 0o644)
+  secureFile(path)
+  expect(statSync(path).mode & 0o777).toBe(0o600)
+})
+
+test('a created .env is owner-only, since it invites credentials into it', () => {
+  expect(ensureEnvFile(envPath, { apiId: 0, apiHash: undefined })).toBe(true)
+  expect(statSync(envPath).mode & 0o777).toBe(0o600)
 })

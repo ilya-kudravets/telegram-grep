@@ -67,8 +67,8 @@ async function main() {
     cache.insertMessages([...seed])
 
     const vault = await createVault(PASSPHRASE)
-    const sealedCache = await vault.seal(JSON.stringify(cache.snapshot()))
-    const sealedSession = await vault.seal(SESSION)
+    const sealedCache = await vault.seal(JSON.stringify(cache.snapshot()), 'snapshot')
+    const sealedSession = await vault.seal(SESSION, 'session')
     await saveSealedSnapshot(sealedCache)
     await saveSealedSession(sealedSession)
     await saveCreds(CREDS)
@@ -101,9 +101,17 @@ async function main() {
     document.body.dataset.phase = 'error'
     return
   }
-  report((await vault.open(sealedSession)) === SESSION, 'the session decrypts to what was stored')
+  report(
+    (await vault.open(sealedSession, 'session')) === SESSION,
+    'the session decrypts to what was stored',
+  )
+  // each record names itself in GCM's additional data, so the two are not interchangeable
+  report(
+    (await vault.open(sealedSession, 'snapshot')) === null,
+    'the session record is refused when read as a snapshot',
+  )
 
-  const restored = await vault.open(storedSnapshot)
+  const restored = await vault.open(storedSnapshot, 'snapshot')
   report(restored !== null, 'the cache decrypts with the same key as the session')
   const cache = createMemoryCache(restored ? JSON.parse(restored) : undefined)
   report(cache.count() === 3, `restored ${cache.count()} messages from the sealed snapshot`)

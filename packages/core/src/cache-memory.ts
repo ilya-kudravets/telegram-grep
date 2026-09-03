@@ -131,8 +131,16 @@ export function createMemoryCache(from?: CacheSnapshot): MemoryCache {
       // bumping mid-chat would make a crashed sync skip the older tail on restart.
       for (const m of msgs) put(m)
     },
+    messageIds(chatId: number): number[] {
+      return [...(messages.get(chatId)?.keys() ?? [])]
+    },
     deleteMessages(chatId: number, ids: number[]) {
       drop(ids, (id) => id === chatId)
+    },
+    deleteHistoryBefore(chatId: number, maxId: number) {
+      const byId = messages.get(chatId)
+      if (!byId) return
+      for (const id of byId.keys()) if (id <= maxId) byId.delete(id)
     },
     // DeleteMessageUpdate gives channelId for channels, null otherwise. Non-channel
     // message ids are unique account-wide, channel ids are per-channel.

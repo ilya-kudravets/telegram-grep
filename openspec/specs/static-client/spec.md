@@ -53,6 +53,18 @@ Both the stored Telegram session and the stored message cache MUST be unreadable
 - **WHEN** the user cannot supply the passphrase and chooses to start over
 - **THEN** the client can erase every stored record without the passphrase, and returns to the login flow
 
+#### Scenario: A record moved into another record's place
+- **WHEN** a stored record is substituted for a different one sealed under the same passphrase
+- **THEN** it fails to open, because each record is bound to the slot it belongs to
+
+#### Scenario: A record that cannot be trusted
+- **WHEN** a stored record opens to something that is not the expected content
+- **THEN** the client does not surface what it decrypted, and a cache it cannot read degrades to an empty cache rather than an error
+
+#### Scenario: A record claiming an implausible amount of work
+- **WHEN** a stored record asks for a key-derivation cost outside the range this build accepts
+- **THEN** it is refused as unopenable instead of being honoured
+
 ### Requirement: Cached history works offline in the browser
 
 The static client MUST hold its message cache in the browser, MUST restore it on load, and MUST serve regex search from it without contacting Telegram.
@@ -106,6 +118,14 @@ Because this client also deletes messages *from Telegram*, the local erase MUST 
 #### Scenario: Erasing everything locally
 - **WHEN** the user chooses to erase the local data
 - **THEN** the client confirms, then removes the cache, the session and the saved credentials from the browser, and returns to its first-launch state
+
+#### Scenario: An erase that a pending write could undo
+- **WHEN** the user erases or logs out while the client still has a snapshot write scheduled
+- **THEN** the client is stopped first, so no write can land after the erase and silently restore the archive
+
+#### Scenario: An erase another tab is holding open
+- **WHEN** the stored data cannot be removed because another tab has it open
+- **THEN** the failure is reported and the client does not claim the data was erased
 
 #### Scenario: Telling the two apart
 - **WHEN** the user reads the local-erase control and its confirmation

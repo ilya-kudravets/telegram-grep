@@ -45,6 +45,8 @@ test.each([
   ['tplDocs', 'мой инн 771234567890'],
   ['tplDocs', 'my SSN is on the photo'],
   ['tplEmails', 'напиши на ilya@example.com'],
+  ['tplEmails', 'first.last+tag@mail.sub.example.co.uk'],
+  ['tplEmails', 'a_b-c@my-host.io,'],
   ['tplPhones', 'звони +7 916 123-45-67'],
   ['tplPhones', 'номер 8 (916) 123-45-67'],
   ['tplAddress', 'адрес: Тверская 1'],
@@ -72,8 +74,21 @@ test.each([
   ['tplAddress', 'IP address changed'],
   ['tplAddress', 'email address is wrong'],
   ['tplAddress', 'надо адресовать вопрос'],
+  ['tplEmails', 'сегодня в 10@ или a@b, без домена'],
+  ['tplEmails', 'me@localhost'],
 ])('%s stays quiet on "%s"', (label, text) => {
   expect(tpl(label).test(text)).toBe(false)
+})
+
+// tplEmails used to backtrack quadratically: without the leading lookbehind every offset
+// in a long local part re-ran the same failing domain scan (38ms at 8k chars, and
+// searchCache does this for every cached row). Linear now, so a huge near-miss is instant.
+test('tplEmails shrugs off a long near-miss', () => {
+  const re = tpl('tplEmails')
+  const evil = `${'x'.repeat(32768)}@${'a.'.repeat(16384)}!`
+  const started = performance.now()
+  expect(re.test(evil)).toBe(false)
+  expect(performance.now() - started).toBeLessThan(100)
 })
 
 test('templates do not fire on ordinary chatter', () => {

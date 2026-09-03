@@ -1,7 +1,6 @@
 // Headless JSON CLI — lets any AI agent drive the cache without the TUI.
 // search/stats are offline (cache only, no Telegram connection); sync/delete
 // need an authenticated session (data/session or SESSION_STRING in .env).
-import { mkdirSync } from 'node:fs'
 import {
   compilePattern,
   createClient,
@@ -13,6 +12,7 @@ import {
   resolveCreds,
   searchCache,
   searchKinds,
+  secureDataDir,
   syncAll,
   syncChannels,
 } from '@tg/bun'
@@ -20,9 +20,9 @@ import pkg from '../../../package.json' // root manifest — release-please bump
 
 const CACHE = 'data/cache.db'
 const out = (data: unknown) => process.stdout.write(`${JSON.stringify(data)}\n`)
-// offline commands open the cache without createClient, which is what mkdirs data/
+// offline commands open the cache without createClient, which is what secures data/
 function openDb() {
-  mkdirSync('data', { recursive: true })
+  secureDataDir()
   return openCache(CACHE)
 }
 

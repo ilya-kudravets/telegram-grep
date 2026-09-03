@@ -127,7 +127,7 @@ function Gate() {
       client.current = await createBrowserClient(creds.current!, vault)
       // A session that no longer authorizes is not a dead end: the cache is decrypted and
       // searchable, so the UI opens with an offline notice and a login button.
-      const user = (await client.current.resume((await vault.open(sealed))!)) ?? ''
+      const user = (await client.current.resume((await vault.open(sealed, 'session'))!)) ?? ''
       setConnected(user)
       setPhase('ready')
       if (user) client.current.sync() // syncing while unauthorized would only report its failure
@@ -164,8 +164,11 @@ function Gate() {
 
   // Revokes the session on Telegram's side first: if that call fails the local data stays
   // put, so the user can retry instead of ending up logged in everywhere but here.
+  // stop() before the wipe, always: the reload does not stop this document's timers, so a
+  // debounced snapshot save would otherwise recreate the database right after it is gone.
   const logout = guard(async () => {
     await client.current?.logout()
+    await client.current?.stop()
     await wipeAll()
     location.reload()
   })
@@ -174,6 +177,7 @@ function Gate() {
   // passphrase, since nothing sealed under it can be recovered.
   const erase = guard(async () => {
     if (!confirm(t('confirmErase'))) return
+    await client.current?.stop()
     await wipeAll()
     location.reload()
   })

@@ -1,4 +1,5 @@
 import type { TelegramClient } from '@mtcute/core/client.js'
+import { toggleChannelIdMark } from '@mtcute/core/utils.js'
 import { Dispatcher } from '@mtcute/dispatcher'
 import type { Cache, CachedMessage, PeerKind } from './cache'
 
@@ -135,6 +136,27 @@ export async function syncChat(
   // New messages that arrived while offline are delivered by mtcute's update catch-up.
   if (backfilled && topId <= hw) return false
 
+  // A walk that starts at the top and runs to the bottom is the only moment we learn
+  // what Telegram *no longer* has: syncing otherwise only ever inserts, so history the
+  // user cleared — or messages deleted while this client was offline, where no delete
+  // update was ever delivered — would stay cached forever. So snapshot the chat's ids
+  // now and, if the walk reaches the bottom, drop whatever it never saw.
+  //
+  // Only for a walk from the top (`oldestId === 0`): a resumed backfill has already
+  // persisted part of its progress, and pruning against a partial pass would delete the
+  // messages the earlier run downloaded. Taken *before* the walk, so a realtime message
+  // arriving mid-walk is never a candidate. An interrupted walk prunes nothing and the
+  // next resync tries again — losing nothing is worth more than pruning promptly.
+  const before = oldestId === 0 && !backfilled ? cache.messageIds(chatId) : null
+  const seen = new Set<number>()
+  const prune = () => {
+    if (before)
+      cache.deleteMessages(
+        chatId,
+        before.filter((id) => !seen.has(id)),
+      )
+  }
+
   // 1. incremental: catch messages newer than our high-water (skipped on the very first sync).
   //    Small volume; not resumed mid-run — high-water only advances once it fully completes.
   if (hw > 0 && topId > hw) {
@@ -163,17 +185,22 @@ export async function syncChat(
       ...(frontier ? { maxId: frontier } : {}),
     })
     if (page.length === 0) {
+      prune() // an empty first page is a chat whose history was cleared outright
       cache.markBackfilled(chatId)
       return true
     }
     onBatch?.(cacheBatch(cache, page))
+    // every walked id, including the textless messages toCached drops — a superset of
+    // what the cache holds, so the diff can only ever under-prune
     const ids = page.map((m) => m.id)
+    for (const id of ids) seen.add(id)
     const pageMax = Math.max(...ids)
     const pageMin = Math.min(...ids)
     // first backfill page carries the newest messages — set the incremental high-water once
     // Stryker disable next-line ConditionalExpression: bumping every page is idempotent — pages only descend and bumpLastMsgId keeps the max, so re-bumping is a no-op
     if (cache.lastMsgId(chatId) === 0) cache.bumpLastMsgId(chatId, pageMax)
     if (frontier && pageMin >= frontier) {
+      prune()
       cache.markBackfilled(chatId) // no downward progress → reached the bottom
       return true
     }
@@ -250,7 +277,24 @@ export interface RealtimeDispatcher {
   onNewMessage(fn: (msg: MsgLike) => unknown): void
   onEditMessage(fn: (msg: MsgLike) => unknown): void
   onDeleteMessage(fn: (upd: { messageIds: number[]; channelId: number | null }) => unknown): void
+  /** Raw TL updates — the only route to the ones mtcute exposes no typed handler for. */
+  onRawUpdate(fn: (client: unknown, upd: RawUpdate) => unknown): void
 }
+
+/** The raw update fields we read. `_` is mtcute's TL constructor tag. */
+export interface RawUpdate {
+  _: string
+  channelId?: number
+  availableMinId?: number
+}
+
+/**
+ * Telegram's "history was cleared" for a channel or supergroup: everything up to
+ * `availableMinId` is gone. There is no typed handler for it, and no equivalent update
+ * for a private chat or basic group at all — clearing one of those reaches the cache
+ * only via a resync's prune (see `syncChat`).
+ */
+export const CHANNEL_HISTORY_CLEARED = 'updateChannelAvailableMessages'
 
 export function attachRealtime(
   tg: TelegramClient,
@@ -279,6 +323,12 @@ export function attachRealtime(
   })
   dp.onDeleteMessage(async (upd) => {
     cache.deleteByUpdate(upd.messageIds, upd.channelId)
+    onChange?.()
+  })
+  dp.onRawUpdate(async (_client, upd) => {
+    if (upd._ !== CHANNEL_HISTORY_CLEARED) return
+    // channelId comes unmarked; the cache keys chats by the marked (negative) form
+    cache.deleteHistoryBefore(toggleChannelIdMark(upd.channelId!), upd.availableMinId!)
     onChange?.()
   })
 }

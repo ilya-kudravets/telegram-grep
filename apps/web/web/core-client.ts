@@ -50,16 +50,36 @@ export interface BrowserClient {
   /** Seals a string with the same vault the cache uses — the caller stores the session
    * string, and has no business holding a second key to do it. */
   seal(plain: string): Promise<SealedBlob>
+  /**
+   * Stops writing, permanently, and tears down the client. Call it before wiping storage:
+   * a navigation does not stop this document, so a debounced snapshot save queued before
+   * an erase would otherwise land after it, recreate the database, and put the whole
+   * archive back sealed under a key nothing will ever ask for again.
+   */
+  stop(): Promise<void>
 }
 
 const SAVE_DEBOUNCE = 1000
 
+/**
+ * A snapshot the vault cannot open — a passphrase that has since changed, a record from an
+ * older format, one swapped in from the session slot — is not an error worth stopping for:
+ * start empty and let the next sync refill it. The plaintext must never reach an error
+ * path either: a `JSON.parse` failure puts the text it choked on into its own message, and
+ * the gate renders messages on screen.
+ */
+async function restoreSnapshot(vault: Vault): Promise<CacheSnapshot | undefined> {
+  try {
+    const sealed = await loadSealedSnapshot()
+    const plain = sealed && (await vault.open(sealed, 'snapshot'))
+    return plain ? (JSON.parse(plain) as CacheSnapshot) : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export async function createBrowserClient(creds: AppCreds, vault: Vault): Promise<BrowserClient> {
-  // A snapshot the vault cannot open (written under a passphrase that has since changed)
-  // is not an error worth stopping for — start empty and let the next sync refill it.
-  const sealed = await loadSealedSnapshot()
-  const restored = sealed ? await vault.open(sealed) : null
-  const cache = createMemoryCache(restored ? (JSON.parse(restored) as CacheSnapshot) : undefined)
+  const cache = createMemoryCache(await restoreSnapshot(vault))
   const tg = new TelegramClient({
     apiId: creds.apiId,
     apiHash: creds.apiHash,
@@ -90,7 +110,15 @@ export async function createBrowserClient(creds: AppCreds, vault: Vault): Promis
 
   // A snapshot write is the whole cache, and sync reports every 500-message batch, so
   // writes are coalesced. flush() is the "must not lose this" path (sync end, delete).
-  const store = async () => saveSealedSnapshot(await vault.seal(JSON.stringify(cache.snapshot())))
+  // `stopped` is checked on both sides of the seal: sealing yields, and stop() landing in
+  // that window must still keep the write from reaching a wiped database.
+  let stopped = false
+  const store = async () => {
+    if (stopped) return
+    const sealed = await vault.seal(JSON.stringify(cache.snapshot()), 'snapshot')
+    if (stopped) return
+    await saveSealedSnapshot(sealed)
+  }
   let saveTimer: ReturnType<typeof setTimeout> | undefined
   const persist = () => {
     clearTimeout(saveTimer)
@@ -201,7 +229,16 @@ export async function createBrowserClient(creds: AppCreds, vault: Vault): Promis
       await tg.logOut()
     },
 
-    seal: (plain) => vault.seal(plain),
+    async stop() {
+      stopped = true
+      clearTimeout(saveTimer)
+      // destroy() ends the updates loop and the connection, so no realtime handler calls
+      // persist() again. Failures are swallowed: an erase has to work with no network,
+      // and the flag above has already made a write impossible either way.
+      await tg.destroy().catch(() => {})
+    },
+
+    seal: (plain) => vault.seal(plain, 'session'),
 
     sync: doSync,
   }

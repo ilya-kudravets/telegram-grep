@@ -1,6 +1,6 @@
 import { Database } from 'bun:sqlite'
 import { describe, expect, test } from 'bun:test'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openCache } from '@tg/bun'
@@ -25,6 +25,29 @@ describe('cache db (bun:sqlite specifics)', () => {
     c.markBackfilled(1)
     expect(c.backfillState(1)).toEqual({ oldestId: 42, backfilled: true })
     c.close()
+  })
+
+  // Load-bearing ordering: this pragma is ignored once a table exists, so a schema that
+  // creates tables before it silently ships a database that can never return disk space.
+  test('a fresh database is created with incremental auto_vacuum', () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'tgc-')), 'cache.db')
+    openCache(path).close()
+    const db = new Database(path)
+    expect(db.query('pragma auto_vacuum').get()).toEqual({ auto_vacuum: 2 })
+    db.close()
+  })
+
+  // The security property, not a style preference: nothing on the Bun side encrypts
+  // this file, so its mode is the only thing keeping another local uid (or a backup
+  // daemon, or a synced folder) out of every message ever synced.
+  test('a file-backed cache is created owner-only', () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'tgc-')), 'cache.db')
+    openCache(path).close()
+    expect(statSync(path).mode & 0o777).toBe(0o600)
+  })
+
+  test('an in-memory cache has no file to restrict, and does not try', () => {
+    expect(() => openCache(':memory:').close()).not.toThrow()
   })
 
   test('close closes the database', () => {

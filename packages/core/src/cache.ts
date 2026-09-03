@@ -50,13 +50,23 @@ export interface Cache {
   markBackfilled(chatId: number): void
   /**
    * Forgets every chat's sync bookkeeping (high-water mark and backfill frontier), so
-   * the next sync walks all history again. Cached messages stay: re-inserting them is
-   * an upsert, so a resync repairs and refreshes rather than emptying the cache — and
-   * an interrupted one leaves the user with everything they already had.
+   * the next sync walks all history again. Cached messages stay put here: re-inserting
+   * them is an upsert, so an *interrupted* resync leaves the user with everything they
+   * already had. The re-walk itself is what removes messages Telegram no longer has —
+   * see `messageIds`.
    */
   resetSyncState(): void
   insertMessages(msgs: CachedMessage[]): void
+  /**
+   * Every cached message id in one chat. Only a full re-walk uses this: it needs to know
+   * what the cache held *before* the walk to work out what Telegram has since dropped,
+   * because nothing else in a sync ever deletes and history cleared upstream would
+   * otherwise stay cached forever.
+   */
+  messageIds(chatId: number): number[]
   deleteMessages(chatId: number, ids: number[]): void
+  /** Drops a cleared prefix of a chat's history: every id up to and including `maxId`. */
+  deleteHistoryBefore(chatId: number, maxId: number): void
   deleteByUpdate(ids: number[], channelId: number | null): void
   iterAll(): IterableIterator<SearchRow>
   count(): number
@@ -68,6 +78,13 @@ export const MIN_CHANNEL_MARKED = -1_000_000_000_000
 
 // Portable, driver-agnostic SQL (standard SQLite). Shared by every adapter.
 export const SCHEMA_SQL = `
+  -- Must precede the first create table: auto_vacuum can only be turned on for a database
+  -- with no tables yet, or by a full VACUUM later — and VACUUM needs free space equal to
+  -- the whole file, which a phone-sized archive won't have. Costs ~0.1% of file size.
+  -- Existing databases silently keep whatever they were created with.
+  -- ponytail: enabling it only makes reclaiming possible; freed pages return to the OS when
+  -- something runs 'pragma incremental_vacuum'. Add that call wherever space is actually wanted.
+  pragma auto_vacuum = incremental;
   pragma journal_mode = WAL;
   pragma synchronous = normal;
   create table if not exists chats (
@@ -112,6 +129,8 @@ export const SQL = {
   markBackfilled: `insert into chats (id, backfilled) values (?1, 1)
      on conflict(id) do update set backfilled = 1`,
   resetSyncState: `update chats set last_msg_id = 0, oldest_id = 0, backfilled = 0`,
+  messageIds: `select id from messages where chat_id = ?`,
+  deleteHistoryBefore: `delete from messages where chat_id = ? and id <= ?`,
   insertMessage: `insert into messages (chat_id, id, date, sender, text, out) values (?, ?, ?, ?, ?, ?)
      on conflict(chat_id, id) do update set text = excluded.text, date = excluded.date`,
   search: `select m.chat_id, m.id, m.date, m.sender, m.text, m.out,

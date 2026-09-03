@@ -2,11 +2,13 @@ import { describe, expect, test } from 'bun:test'
 import {
   attachRealtime,
   type Cache,
+  CHANNEL_HISTORY_CLEARED,
   floodWaitSeconds,
   type MsgLike,
   openCache,
   type PeerKind,
   peerKind,
+  type RawUpdate,
   SERVICE_NOTIFICATIONS_ID,
   type SyncClient,
   sleep,
@@ -408,6 +410,7 @@ describe('attachRealtime', () => {
       onNew?: (m: MsgLike) => unknown
       onEdit?: (m: MsgLike) => unknown
       onDel?: (u: { messageIds: number[]; channelId: number | null }) => unknown
+      onRaw?: (client: unknown, u: RawUpdate) => unknown
     } = {}
     let changes = 0
     const dp = {
@@ -419,6 +422,9 @@ describe('attachRealtime', () => {
       },
       onDeleteMessage: (fn: (u: { messageIds: number[]; channelId: number | null }) => unknown) => {
         h.onDel = fn
+      },
+      onRawUpdate: (fn: (client: unknown, u: RawUpdate) => unknown) => {
+        h.onRaw = fn
       },
     }
     // tg is unused by the fake factory; cast a dummy
@@ -480,6 +486,31 @@ describe('attachRealtime', () => {
     expect(cache.count()).toBe(0)
     expect(changes()).toBe(2) // onNew + onDel each fired onChange (fresh wire per test)
   })
+  // There is no typed handler and no private-chat equivalent — see CHANNEL_HISTORY_CLEARED
+  test('a cleared channel history drops the cached prefix and fires onChange', async () => {
+    const cache = openCache(':memory:')
+    const marked = -1000000000123 // toggleChannelIdMark(123)
+    cache.insertMessages([
+      toCached(msg(5, 'old', marked))!,
+      toCached(msg(9, 'kept', marked))!,
+      toCached(msg(5, 'other chat', 1))!,
+    ])
+    const { h, changes } = wire(cache)
+    // the wire name spelled out, not the constant: this pins the string Telegram sends
+    await h.onRaw!({}, { _: 'updateChannelAvailableMessages', channelId: 123, availableMinId: 5 })
+    expect(CHANNEL_HISTORY_CLEARED).toBe('updateChannelAvailableMessages')
+    expect([...cache.iterAll()].map((r) => r.text).sort()).toEqual(['kept', 'other chat'])
+    expect(changes()).toBe(1)
+  })
+
+  test('every other raw update is ignored, cache and listeners untouched', async () => {
+    const cache = openCache(':memory:')
+    cache.insertMessages([toCached(msg(5, 'a', -1000000000123))!])
+    const { h, changes } = wire(cache)
+    await h.onRaw!({}, { _: 'updateUserTyping', channelId: 123, availableMinId: 99 })
+    expect(cache.count()).toBe(1)
+    expect(changes()).toBe(0)
+  })
 })
 
 describe('sleep', () => {
@@ -528,5 +559,86 @@ describe('backfill termination', () => {
     await syncAll(tg, cache)
     expect(cache.count()).toBe(6) // every page fetched, not just the first two
     expect(cache.backfillState(1).backfilled).toBe(true)
+  })
+})
+
+// Nothing in a sync ever deleted, so history cleared on Telegram's side stayed cached
+// forever — a resync re-inserted what was left and kept the rest. A full re-walk is the
+// only moment the cache learns what upstream no longer has.
+describe('resync prunes what Telegram no longer has', () => {
+  test('history cleared upstream is dropped by the next full walk', async () => {
+    const cache = openCache(':memory:')
+    await syncAll(fakeClient({ 1: [msg(3, 'c'), msg(2, 'b'), msg(1, 'a')] }), cache)
+    expect(cache.count()).toBe(3)
+
+    // user clears the chat in Telegram, leaving only the newest message
+    cache.resetSyncState()
+    await syncAll(fakeClient({ 1: [msg(3, 'c')] }), cache)
+    expect([...cache.iterAll()].map((r) => r.text)).toEqual(['c'])
+  })
+
+  test('a chat emptied outright leaves nothing behind', async () => {
+    const cache = openCache(':memory:')
+    await syncAll(fakeClient({ 1: [msg(2, 'b'), msg(1, 'a')] }), cache)
+    cache.resetSyncState()
+    await syncAll(fakeClient({ 1: [] }), cache)
+    expect(cache.count()).toBe(0)
+  })
+
+  test('an ordinary incremental sync prunes nothing — it never sees the whole chat', async () => {
+    const cache = openCache(':memory:')
+    await syncAll(fakeClient({ 1: [msg(2, 'b'), msg(1, 'a')] }), cache)
+    // backfill is complete, so a second run only asks for what is newer than the
+    // high-water: it has no idea 'a' is gone and must not guess
+    await syncAll(fakeClient({ 1: [msg(3, 'c'), msg(2, 'b')] }), cache)
+    expect([...cache.iterAll()].map((r) => r.text).sort()).toEqual(['a', 'b', 'c'])
+  })
+
+  test('an interrupted resync prunes nothing, so a failed walk cannot lose messages', async () => {
+    const full = [msg(5, 'e'), msg(4, 'd'), msg(3, 'c'), msg(2, 'b'), msg(1, 'a')]
+    const cache = openCache(':memory:')
+    await syncAll(fakeClient({ 1: full }), cache)
+
+    // re-walk dies on the second page — the first page saw only 5,4, and pruning against
+    // that partial view would delete 3,2,1, which are still perfectly good
+    cache.resetSyncState()
+    const dies: SyncClient = {
+      ...fakeClient({ 1: full }),
+      async getHistory(_chatId, params) {
+        const maxId = params?.maxId ?? Infinity
+        if (maxId <= 4) throw new Error('BOOM')
+        return full.filter((m) => m.id <= maxId).slice(0, 2)
+      },
+    }
+    await syncAll(dies, cache)
+    expect(cache.count()).toBe(5)
+
+    // and the resumed walk still prunes nothing, since it too only saw part of the chat
+    await syncAll(fakeClient({ 1: [msg(5, 'e'), msg(4, 'd')] }), cache)
+    expect(cache.count()).toBe(5)
+  })
+
+  test('a message that arrives mid-walk survives the prune', async () => {
+    const cache = openCache(':memory:')
+    await syncAll(fakeClient({ 1: [msg(1, 'a')] }), cache)
+    cache.resetSyncState()
+
+    // realtime insert lands after the walk has already read the chat's id list
+    const tg = fakeClient({ 1: [msg(1, 'a')] })
+    const racing: SyncClient = {
+      ...tg,
+      async getHistory(chatId, params) {
+        cache.insertMessages([toCached(msg(9, 'live'))!])
+        return tg.getHistory(chatId, params)
+      },
+    }
+    await syncAll(racing, cache)
+    expect([...cache.iterAll()].map((r) => r.text).sort()).toEqual(['a', 'live'])
+  })
+
+  test('the first sync of an empty cache prunes nothing it just downloaded', async () => {
+    const cache = openCache(':memory:')
+    await syncAll(fakeClient({ 1: [msg(2, 'b'), msg(1, 'a')] }), cache)
+    expect(cache.count()).toBe(2)
   })
 })
