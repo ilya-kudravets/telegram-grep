@@ -1,4 +1,5 @@
 import { LANGS, type Lang, makeT, normalizeLang } from '@tg/core/i18n'
+import { DEFAULT_PATTERNS } from '@tg/core/patterns'
 import { useEffect, useRef, useState } from 'react'
 import './app.css'
 
@@ -61,8 +62,15 @@ export function App({ data }: { data: DataLayer }) {
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
   const [langPref, setLangPref] = useState<'' | Lang>(initialLangPref)
+  const [templatesOpen, setTemplatesOpen] = useState(false)
   const lastCached = useRef(0)
   const t = makeT(resolveLang(langPref))
+
+  // a template fills the search box and closes the sheet — no second click to dismiss
+  function pickPattern(pattern: string) {
+    setQ(pattern)
+    setTemplatesOpen(false)
+  }
 
   function changeLang(pref: '' | Lang) {
     localStorage.setItem('lang', pref)
@@ -173,6 +181,32 @@ export function App({ data }: { data: DataLayer }) {
             onChange={(e) => setQ(e.target.value)}
             autoFocus
           />
+          {/* <details> is the whole popover: native light-dismiss-ish behaviour, no
+              library, and it degrades to an inline list if anything goes wrong */}
+          <details
+            className="templates"
+            open={templatesOpen}
+            onToggle={(e) => setTemplatesOpen(e.currentTarget.open)}
+          >
+            <summary>{t('templatesBtn')}</summary>
+            <div className="sheet">
+              {DEFAULT_PATTERNS.map(({ label, pattern }) => (
+                <button type="button" key={label} onClick={() => pickPattern(pattern)}>
+                  {t(label)}
+                </button>
+              ))}
+              {status?.patterns?.length ? (
+                <>
+                  <span className="sep">{t('patternsFromFile')}</span>
+                  {status.patterns.map((p) => (
+                    <button type="button" key={p} onClick={() => pickPattern(p)}>
+                      {p}
+                    </button>
+                  ))}
+                </>
+              ) : null}
+            </div>
+          </details>
           <select
             aria-label={t('language')}
             value={langPref}
@@ -186,15 +220,6 @@ export function App({ data }: { data: DataLayer }) {
             ))}
           </select>
         </div>
-        {status?.patterns?.length ? (
-          <div className="patterns">
-            {status.patterns.map((p) => (
-              <button type="button" key={p} onClick={() => setQ(p)}>
-                {p}
-              </button>
-            ))}
-          </div>
-        ) : null}
       </header>
 
       <div className="statusbar">

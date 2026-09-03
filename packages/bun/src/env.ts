@@ -30,6 +30,13 @@ export function resolveCreds(
   }
 }
 
+/**
+ * Broadcast channels are skipped by default (see @tg/core's isBroadcast): their archives
+ * are the bulk of a sync and hold nothing you can delete. SYNC_CHANNELS=1 opts back in.
+ */
+export const syncChannels = (env: Record<string, string | undefined> = process.env) =>
+  env.SYNC_CHANNELS === '1'
+
 // Bun loads .env once at process start, so a file created here only helps the *next* run.
 // Skip it if real env vars already supply the creds (e.g. Docker/CI) — no .env needed there.
 // 'wx' creates atomically and fails if the file already exists, avoiding a

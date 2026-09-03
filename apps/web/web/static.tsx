@@ -61,10 +61,14 @@ function Gate() {
     })().catch((e) => setError(String(e)))
   }, [])
 
-  // Telegram's own wording for a leaked app id is `API_ID_PUBLISHED_FLOOD`, which tells a
-  // user nothing — and a baked pair is exactly the pair that can end up in that state.
-  const explain = (message: string) =>
-    message.includes('API_ID_PUBLISHED_FLOOD') ? t('apiIdPublished') : message
+  // Telegram's error names tell a user nothing on their own. A baked pair is exactly the
+  // pair that can end up published, and code requests are rate-limited per number.
+  const explain = (message: string) => {
+    if (message.includes('API_ID_PUBLISHED_FLOOD')) return t('apiIdPublished')
+    if (message.includes('PHONE_NUMBER_FLOOD')) return t('phoneFlood')
+    const flood = message.match(/FLOOD_WAIT_(\d+)/)
+    return flood ? t('codeFlood', flood[1]!) : message
+  }
 
   // wraps a submit handler: one in-flight action, failures shown instead of thrown
   const guard = (fn: () => Promise<void>) => async (e: React.SyntheticEvent) => {
@@ -138,7 +142,12 @@ function Gate() {
         phone: () => prompt(t('askPhone')),
         code: () => prompt(t('askCode')),
         password: () => prompt(t('askPassword'), true),
-        codeSent: (via) => setNotice(via === 'app' ? t('codeSentApp') : t('codeSentVia', via)),
+        codeSent: ({ via, nextVia, retryInSeconds }) =>
+          setNotice(
+            `${via === 'app' ? t('codeSentApp') : t('codeSentVia', via)} ${
+              nextVia === 'none' ? t('codeNoResend') : t('codeResendIn', nextVia, retryInSeconds)
+            }`,
+          ),
         rejected: (what) => setNotice(what === 'code' ? t('codeRejected') : t('passwordRejected')),
       })
       await saveSealedSession(await client.current!.seal(session))

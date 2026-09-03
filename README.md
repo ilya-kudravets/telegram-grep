@@ -14,6 +14,15 @@ Telegram TUI client: local cache of all chats, regex search, delete messages acr
 
 ## Usage
 
+- **Broadcast channels are not synced.** A channel is a feed, not correspondence: nothing in it
+  is yours to delete unless you are its admin, and one channel's archive outweighs every real
+  chat you have. Groups, supergroups, gigagroups and private chats are synced as before. Set
+  `SYNC_CHANNELS=1` to include channels anyway (already-cached channel messages stay searchable
+  either way).
+- **Templates** — the search box has a `Templates` button with ready-made patterns for the things
+  people regret sending: passwords, one-time codes, API keys, card numbers, emails, phone numbers,
+  crypto addresses, document numbers, postal addresses. `patterns.txt` entries are listed under
+  them in the same sheet (server/TUI only — a browser has no file).
 - Type a regex in the search field — results update as you type. A plain string matches case-insensitively; `/pat/flags` is used as-is.
 - `tab` — switch focus between input and list, `space` — toggle selection, `d` — delete the selected (or current) messages with a `y/n` confirm, `esc` — reset, `^P` — cycle patterns from `patterns.txt` (the file is re-read on the fly), `^C` — quit.
 - Deletion uses `revoke`: for everyone, on all devices. Others' messages are deleted where you have rights; permission errors are shown in the status bar.
@@ -98,8 +107,11 @@ Telegram straight from the tab (`@mtcute/web`), and keeps the cache in IndexedDB
 - The login prompts say **where Telegram sent the code**: `app` delivery means it went into
   Telegram on another device you are logged in on, not by SMS — which is what "the code never
   arrived" almost always turns out to be. A rejected code or password says so too, instead of
-  silently reopening the same field. If Telegram answers `API_ID_PUBLISHED_FLOOD`, the page
-  explains it: that app id has been published publicly and you need your own.
+  silently reopening the same field. It also shows what Telegram offers next and when
+  (`nextType`/`timeout`) — the only signal available when Telegram accepts the request and then
+  silently declines to deliver, which is exactly what its per-number anti-abuse limit does.
+  `API_ID_PUBLISHED_FLOOD`, `PHONE_NUMBER_FLOOD` and `FLOOD_WAIT_n` are translated into what to do
+  about them instead of shown raw.
 - Two exits, and they mean different things: **Log out** revokes the session on Telegram's side
   first and only then wipes this browser (if the revoke fails, nothing local is touched, so you
   can retry); **Erase all data** needs no network and no key — it deletes the cache, the session

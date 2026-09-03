@@ -10,6 +10,7 @@
     "./cache-memory": "./src/cache-memory.ts",
     "./creds": "./src/creds.ts",
     "./search": "./src/search.ts",
+    "./patterns": "./src/patterns.ts",
     "./sync": "./src/sync.ts",
     "./deleter": "./src/deleter.ts",
     "./i18n": "./src/i18n.ts"

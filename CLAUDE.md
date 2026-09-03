@@ -15,6 +15,11 @@ Bun workspaces (`workspaces` in the root `package.json`). Run everything from th
 cwd stays the root, so `.env` and `data/` live there.
 
 - `packages/core/` (`@tg/core`) — the **portable domain**. No platform code (no Bun, no `fs`).
+  `isBroadcast` (sync.ts) is the one place that decides a peer is a feed rather than
+  correspondence: `syncAll` and `attachRealtime` both skip those unless their last argument says
+  otherwise (`syncChannels()` reads `SYNC_CHANNELS=1` on the Bun side; the browser has no env and
+  always skips). `patterns.ts` holds the UI's ready-made search templates — labels are i18n keys,
+  not text, so the list stays UI rather than data.
   Two `Cache` adapters implement its port: `bun:sqlite` (`packages/bun`) and the in-memory one
   (`cache-memory.ts`) the browser client persists snapshots of. Both must satisfy
   `tests/cache-conformance.ts` — add contract facts there, not to one adapter's own tests.

@@ -9,13 +9,22 @@ export interface MsgLike {
   date: Date
   isOutgoing: boolean
   sender: { displayName: string }
-  chat: { id: number; displayName: string }
+  // chatType comes from mtcute's Chat; a private chat's peer is a User and has none
+  chat: { id: number; displayName: string; chatType?: string }
 }
+
+/**
+ * A broadcast channel: a feed, not correspondence. Nothing there is yours to delete unless
+ * you are an admin, and a single channel's archive dwarfs every real chat you have — so
+ * downloading them is the bulk of a sync and none of its value. Skipped by default;
+ * `gigagroup`/`supergroup`/`group` stay, since your own messages live in those.
+ */
+export const isBroadcast = (chat: { chatType?: string }) => chat.chatType === 'channel'
 
 // The subset of TelegramClient sync needs
 export interface SyncClient {
   iterDialogs(params?: object): AsyncIterable<{
-    peer: { id: number; displayName: string }
+    peer: { id: number; displayName: string; chatType?: string }
     lastMessage: { id: number } | null // newest message id — lets us skip unchanged chats
   }>
   iterHistory(chatId: number, params?: { minId?: number }): AsyncIterable<MsgLike>
@@ -128,11 +137,14 @@ export async function syncAll(
   cache: Cache,
   onProgress?: (p: SyncProgress) => void,
   sleepMs: (ms: number) => Promise<unknown> = sleep, // injectable so flood-wait backoff is testable
+  includeBroadcasts = false, // see isBroadcast — set by SYNC_CHANNELS=1
 ): Promise<SyncProgress> {
   // NB: keep the Peer instance as-is — id/displayName are prototype getters that a
   // `{...dialog.peer}` spread would silently drop (→ getHistory(undefined)).
-  const dialogs: { peer: { id: number; displayName: string }; topId: number }[] = []
+  const dialogs: { peer: { id: number; displayName: string; chatType?: string }; topId: number }[] =
+    []
   for await (const dialog of tg.iterDialogs()) {
+    if (!includeBroadcasts && isBroadcast(dialog.peer)) continue
     dialogs.push({ peer: dialog.peer, topId: dialog.lastMessage?.id ?? 0 })
   }
 
@@ -192,9 +204,11 @@ export function attachRealtime(
   onChange?: () => void,
   makeDispatcher: (tg: TelegramClient) => RealtimeDispatcher = (t) =>
     Dispatcher.for(t) as unknown as RealtimeDispatcher,
+  includeBroadcasts = false,
 ) {
   const dp = makeDispatcher(tg)
   dp.onNewMessage(async (msg) => {
+    if (!includeBroadcasts && isBroadcast(msg.chat)) return // same reasoning as syncAll's filter
     cache.upsertChat(msg.chat.id, msg.chat.displayName)
     const c = toCached(msg)
     if (c) cache.insertMessages([c])
@@ -204,6 +218,7 @@ export function attachRealtime(
     onChange?.()
   })
   dp.onEditMessage(async (msg) => {
+    if (!includeBroadcasts && isBroadcast(msg.chat)) return
     const c = toCached(msg)
     if (c) cache.insertMessages([c])
     onChange?.()

@@ -21,6 +21,12 @@ const msg = (id: number, text: string, chatId = 1): MsgLike => ({
   chat: { id: chatId, displayName: 'Chat' },
 })
 
+// same message, but from a broadcast channel rather than correspondence
+const channelMsg = (id: number, text: string, chatId = 1): MsgLike => ({
+  ...msg(id, text, chatId),
+  chat: { id: chatId, displayName: 'Feed', chatType: 'channel' },
+})
+
 // history is stored newest-first per chat; getHistory pages downward via maxId,
 // iterHistory yields anything newer than minId
 function fakeClient(historyByChat: Record<number, MsgLike[]>): SyncClient & {
@@ -60,6 +66,21 @@ function fakeClient(historyByChat: Record<number, MsgLike[]>): SyncClient & {
       getHistoryCalls.push({ chatId, maxId: params?.maxId ?? 0 })
       const all = (historyByChat[chatId] ?? []).filter((m) => m.id <= maxId)
       return all.slice(0, params?.limit ?? 100)
+    },
+  }
+}
+
+// one dialog per entry, with the chat type Telegram would report
+function typedDialogClient(chats: { id: number; chatType?: string }[]): SyncClient {
+  return {
+    async *iterDialogs() {
+      for (const { id, chatType } of chats) {
+        yield { peer: { id, displayName: `Chat ${id}`, chatType }, lastMessage: { id: 10 } }
+      }
+    },
+    async *iterHistory() {},
+    async getHistory(chatId: number, params?: { maxId?: number }) {
+      return params?.maxId ? [] : [msg(10, 'post', chatId)]
     },
   }
 }
@@ -292,8 +313,44 @@ describe('syncChat fast path', () => {
   })
 })
 
+describe('broadcast channels', () => {
+  test('are skipped by default: a feed is not correspondence', async () => {
+    const cache = openCache(':memory:')
+    const p = await syncAll(typedDialogClient([{ id: 1, chatType: 'channel' }]), cache)
+    expect(p.chatsTotal).toBe(0)
+    expect(cache.count()).toBe(0)
+  })
+
+  test('are synced when explicitly opted in', async () => {
+    const cache = openCache(':memory:')
+    const p = await syncAll(
+      typedDialogClient([{ id: 1, chatType: 'channel' }]),
+      cache,
+      undefined,
+      undefined,
+      true,
+    )
+    expect(p.chatsTotal).toBe(1)
+    expect(cache.count()).toBe(1)
+  })
+
+  test('groups and private chats are never affected by the filter', async () => {
+    const cache = openCache(':memory:')
+    const p = await syncAll(
+      typedDialogClient([
+        { id: 1, chatType: 'supergroup' },
+        { id: 2, chatType: 'gigagroup' },
+        { id: 3 }, // private chat: mtcute's peer is a User and has no chatType at all
+      ]),
+      cache,
+    )
+    expect(p.chatsTotal).toBe(3)
+    expect(cache.count()).toBe(3)
+  })
+})
+
 describe('attachRealtime', () => {
-  function wire(cache: Cache) {
+  function wire(cache: Cache, includeBroadcasts?: boolean) {
     const h: {
       onNew?: (m: MsgLike) => unknown
       onEdit?: (m: MsgLike) => unknown
@@ -319,6 +376,7 @@ describe('attachRealtime', () => {
         changes++
       },
       () => dp,
+      includeBroadcasts,
     )
     return { h, changes: () => changes }
   }
@@ -333,6 +391,23 @@ describe('attachRealtime', () => {
     expect(rows[0]!.chat_title).toBe('Chat') // from upsertChat(msg.chat.displayName)
     expect(cache.lastMsgId(1)).toBe(4)
     expect(changes()).toBe(1)
+  })
+
+  test('a channel post is ignored, so realtime does not refill what sync skips', async () => {
+    const cache = openCache(':memory:')
+    const { h, changes } = wire(cache)
+    await h.onNew!(channelMsg(4, 'post', -1001))
+    await h.onEdit!(channelMsg(4, 'edited post', -1001))
+    expect(cache.count()).toBe(0)
+    expect(changes()).toBe(0)
+  })
+
+  test('a channel post is kept when broadcasts are opted in', async () => {
+    const cache = openCache(':memory:')
+    const { h } = wire(cache, true)
+    await h.onNew!(channelMsg(4, 'post', -1001))
+    await h.onEdit!(channelMsg(4, 'edited post', -1001))
+    expect([...cache.iterAll()].map((r) => r.text)).toEqual(['edited post'])
   })
 
   test('edit updates cached text and fires onChange', async () => {

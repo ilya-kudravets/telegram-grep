@@ -22,12 +22,14 @@ export interface LoginPrompts {
   code(): Promise<string>
   password(): Promise<string>
   /**
-   * How Telegram actually delivered the code. Worth showing: `'app'` means it went into
-   * Telegram on another device the user is logged in on, *not* by SMS — the single most
-   * common reason someone concludes the code never arrived. mtcute's default for this is
-   * a console.log nobody in a browser will ever see.
+   * What Telegram says it did with the code. Worth showing all of it: `via: 'app'` means
+   * it went into Telegram on another device the user is logged in on, *not* by SMS — the
+   * single most common reason someone concludes the code never arrived — and
+   * `nextVia`/`retryInSeconds` are the only signal available when Telegram accepts the
+   * request but silently declines to deliver (its anti-abuse limit reports nothing).
+   * mtcute's default for this is a console.log nobody in a browser will ever see.
    */
-  codeSent?(via: string): void
+  codeSent?(info: { via: string; nextVia: string; retryInSeconds: number }): void
   /** What was just entered got rejected and mtcute is asking again — say so, or the form
    * silently reappearing looks like nothing happened. */
   rejected?(what: 'code' | 'password'): void
@@ -149,7 +151,12 @@ export async function createBrowserClient(creds: AppCreds, vault: Vault): Promis
         phone: () => prompts.phone(),
         code: () => prompts.code(),
         password: () => prompts.password(),
-        codeSentCallback: (sent) => prompts.codeSent?.(sent.type),
+        codeSentCallback: (sent) =>
+          prompts.codeSent?.({
+            via: sent.type,
+            nextVia: sent.nextType,
+            retryInSeconds: sent.timeout,
+          }),
         invalidCodeCallback: (what) => prompts.rejected?.(what),
       })
       await attach()

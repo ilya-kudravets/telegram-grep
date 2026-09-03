@@ -13,6 +13,7 @@ import {
   resolveCreds,
   searchCache,
   syncAll,
+  syncChannels,
 } from '@tg/bun'
 import pkg from '../../../package.json' // root manifest — release-please bumps this
 
@@ -120,10 +121,16 @@ export async function runCli(argv: string[]): Promise<number> {
       // progress goes to stderr, one line per update — a TTY overwrites in place,
       // a pipe/log gets one line per update. stdout stays the single JSON result
       // line agents rely on.
-      const p = await syncAll(tg, cache, (progress) => {
-        const line = formatSyncLine(progress)
-        process.stderr.write(process.stderr.isTTY ? `\r${line}\x1b[K` : `${line}\n`)
-      })
+      const p = await syncAll(
+        tg,
+        cache,
+        (progress) => {
+          const line = formatSyncLine(progress)
+          process.stderr.write(process.stderr.isTTY ? `\r${line}\x1b[K` : `${line}\n`)
+        },
+        undefined,
+        syncChannels(),
+      )
       if (process.stderr.isTTY) process.stderr.write('\n')
       out({ chatsDone: p.chatsDone, messages: cache.count(), errors: p.errors })
       cache.close()
