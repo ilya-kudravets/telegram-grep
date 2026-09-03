@@ -128,7 +128,7 @@ Telegram straight from the tab (`@mtcute/web`), and keeps the cache in IndexedDB
   (WebCrypto: PBKDF2-SHA256, 250k iterations → one AES-GCM key, fresh IV per write). The
   passphrase is asked for before the Telegram login, never stored, and the derived key lives only
   in the page — so a reload always asks again. **There is no recovery:** forget it and the only way
-  back is "Erase all data" and a fresh login.
+  back is "Erase local data" and a fresh login.
 - The login prompts say **where Telegram sent the code**: `app` delivery means it went into
   Telegram on another device you are logged in on, not by SMS — which is what "the code never
   arrived" almost always turns out to be. A rejected code or password says so too, instead of
@@ -139,8 +139,11 @@ Telegram straight from the tab (`@mtcute/web`), and keeps the cache in IndexedDB
   about them instead of shown raw.
 - Two exits, and they mean different things: **Log out** revokes the session on Telegram's side
   first and only then wipes this browser (if the revoke fails, nothing local is touched, so you
-  can retry); **Erase all data** needs no network and no key — it deletes the cache, the session
-  and the saved credentials, which is also the answer to a forgotten passphrase.
+  can retry); **Erase local data** needs no network and no key — it deletes the cache, the session
+  and the saved credentials, which is also the answer to a forgotten passphrase. Neither deletes a
+  single message from Telegram: the name says *local* because that is the whole of what it
+  touches, and its confirm prompt says so too. Deleting messages is what the search results'
+  **Delete** button is for.
 - Caveat, stated plainly: encryption at rest protects your data from someone reading the browser's
   storage, **not** from script running in the page while it is unlocked. No browser client can
   protect against that. Host your own copy if you don't want to trust someone else's.
