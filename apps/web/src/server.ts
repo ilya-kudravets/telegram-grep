@@ -48,25 +48,37 @@ onFlood((s) => {
 attachRealtime(tg, cache, broadcast, undefined, syncChannels())
 await tg.startUpdatesLoop()
 
-syncAll(
-  tg,
-  cache,
-  (p) => {
-    status.sync = { ...p }
-    status.flood = 0
-    broadcast()
-  },
-  undefined,
-  syncChannels(),
-)
-  .then(() => {
-    status.syncDone = true
-    broadcast()
-  })
-  .catch((e) => {
-    status.error = e instanceof Error ? e.message : String(e)
-    broadcast()
-  })
+// The boot sync and the /api/resync one are the same walk — the only difference is that
+// a resync clears the cursors first. `running` keeps two of them off the same chats.
+let running = false
+function runSync() {
+  if (running) return
+  running = true
+  status.syncDone = false
+  status.error = ''
+  syncAll(
+    tg,
+    cache,
+    (p) => {
+      status.sync = { ...p }
+      status.flood = 0
+      broadcast()
+    },
+    undefined,
+    syncChannels(),
+  )
+    .then(() => {
+      status.syncDone = true
+    })
+    .catch((e) => {
+      status.error = e instanceof Error ? e.message : String(e)
+    })
+    .finally(() => {
+      running = false
+      broadcast()
+    })
+}
+runSync()
 
 // bind to localhost only unless LAN access is explicitly requested (HOST=0.0.0.0 or LAN=1)
 const hostname = process.env.HOST || (process.env.LAN === '1' ? '0.0.0.0' : '127.0.0.1')
@@ -86,6 +98,11 @@ const serveOpts = {
         del: (targets: Parameters<typeof deleteEverywhere>[2]) =>
           deleteEverywhere(tg, cache, targets),
         status: statusPayload,
+        resync: () => {
+          if (running) return
+          cache.resetSyncState()
+          runSync()
+        },
       }),
     ),
   },

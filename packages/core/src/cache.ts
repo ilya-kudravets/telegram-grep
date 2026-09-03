@@ -24,6 +24,13 @@ export interface Cache {
   backfillState(chatId: number): { oldestId: number; backfilled: boolean }
   setOldestId(chatId: number, id: number): void
   markBackfilled(chatId: number): void
+  /**
+   * Forgets every chat's sync bookkeeping (high-water mark and backfill frontier), so
+   * the next sync walks all history again. Cached messages stay: re-inserting them is
+   * an upsert, so a resync repairs and refreshes rather than emptying the cache — and
+   * an interrupted one leaves the user with everything they already had.
+   */
+  resetSyncState(): void
   insertMessages(msgs: CachedMessage[]): void
   deleteMessages(chatId: number, ids: number[]): void
   deleteByUpdate(ids: number[], channelId: number | null): void
@@ -75,6 +82,7 @@ export const SQL = {
      on conflict(id) do update set oldest_id = ?2`,
   markBackfilled: `insert into chats (id, backfilled) values (?1, 1)
      on conflict(id) do update set backfilled = 1`,
+  resetSyncState: `update chats set last_msg_id = 0, oldest_id = 0, backfilled = 0`,
   insertMessage: `insert into messages (chat_id, id, date, sender, text, out) values (?, ?, ?, ?, ?, ?)
      on conflict(chat_id, id) do update set text = excluded.text, date = excluded.date`,
   search: `select m.chat_id, m.id, m.date, m.sender, m.text, m.out, coalesce(c.title, '') as chat_title

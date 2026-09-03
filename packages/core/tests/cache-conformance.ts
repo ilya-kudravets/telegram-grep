@@ -114,6 +114,28 @@ export function testCache(label: string, open: () => Cache) {
       expect(c.backfillState(1)).toEqual({ oldestId: 42, backfilled: true })
     })
 
+    test("resetSyncState clears every chat's bookkeeping but keeps the messages", () => {
+      const c = open()
+      c.upsertChat(1, 'Chat One')
+      c.upsertChat(2, 'Chat Two')
+      c.bumpLastMsgId(1, 99)
+      c.setOldestId(1, 42)
+      c.markBackfilled(1)
+      c.bumpLastMsgId(2, 7)
+      c.insertMessages([msg(), msg({ chat_id: 2, id: 3 })])
+
+      c.resetSyncState()
+
+      for (const id of [1, 2]) {
+        expect(c.lastMsgId(id)).toBe(0)
+        expect(c.backfillState(id)).toEqual({ oldestId: 0, backfilled: false })
+      }
+      // a resync repairs the cache, it does not empty it — titles included, so results
+      // stay labelled while it runs
+      expect(c.count()).toBe(2)
+      expect([...c.iterAll()].map((r) => r.chat_title).sort()).toEqual(['Chat One', 'Chat Two'])
+    })
+
     test('deleteMessages removes only given ids in chat', () => {
       const c = open()
       c.insertMessages([msg({ id: 1 }), msg({ id: 2 }), msg({ chat_id: 2, id: 1 })])

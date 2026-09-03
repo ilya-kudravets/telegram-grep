@@ -5,6 +5,8 @@ export interface ApiDeps {
   search: (pattern: string) => SearchRow[] | null
   del: (targets: DeleteTarget[]) => Promise<DeleteResult>
   status: () => object
+  /** Forgets the sync bookkeeping and starts a fresh full walk. */
+  resync: () => void
 }
 
 // Bun.serve-compatible route handlers, separated from the server for testing
@@ -26,6 +28,12 @@ export function makeApi(deps: ApiDeps) {
         )
         if (!targets.length) return Response.json({ error: 'targets пуст' }, { status: 400 })
         return Response.json(await deps.del(targets))
+      },
+    },
+    '/api/resync': {
+      POST: () => {
+        deps.resync()
+        return Response.json({ ok: true })
       },
     },
     '/api/status': () => Response.json(deps.status()),

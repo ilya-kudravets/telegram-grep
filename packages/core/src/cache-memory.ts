@@ -96,6 +96,15 @@ export function createMemoryCache(from?: CacheSnapshot): MemoryCache {
     markBackfilled(chatId: number) {
       chat(chatId).backfilled = true
     },
+    resetSyncState() {
+      // titles survive: they came from the dialog list, not from history, and keeping
+      // them means search results stay labelled while the resync is still running
+      for (const row of chats.values()) {
+        row.lastMsgId = 0
+        row.oldestId = 0
+        row.backfilled = false
+      }
+    },
     insertMessages(msgs: CachedMessage[]) {
       // NB: inserting does NOT advance lastMsgId — history downloads newest-first, so
       // bumping mid-chat would make a crashed sync skip the older tail on restart.

@@ -23,6 +23,12 @@ Telegram TUI client: local cache of all chats, regex search, delete messages acr
   people regret sending: passwords, one-time codes, API keys, card numbers, emails, phone numbers,
   crypto addresses, document numbers, postal addresses. `patterns.txt` entries are listed under
   them in the same sheet (server/TUI only — a browser has no file).
+- **Full resync** — the web UI's status bar has a button that forgets what has already been
+  synced and walks all history again. An incremental sync only looks *forward*, so a chat it
+  once marked backfilled is never revisited: anything Telegram declined to hand over the first
+  time (a peer that errored, messages that arrived while nothing was running) stays invisible
+  until something clears the high-water mark. Nothing cached is dropped — re-inserting is an
+  upsert, so a resync repairs and refreshes, and an interrupted one leaves the cache as it was.
 - Type a regex in the search field — results update as you type. A plain string matches case-insensitively; `/pat/flags` is used as-is.
 - `tab` — switch focus between input and list, `space` — toggle selection, `d` — delete the selected (or current) messages with a `y/n` confirm, `esc` — reset, `^P` — cycle patterns from `patterns.txt` (the file is re-read on the fly), `^C` — quit.
 - Deletion uses `revoke`: for everyone, on all devices. Others' messages are deleted where you have rights; permission errors are shown in the status bar.

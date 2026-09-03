@@ -17,11 +17,19 @@ function api(overrides: Partial<Parameters<typeof makeApi>[0]> = {}) {
     search: () => [row],
     del: async (targets) => ({ deleted: targets.length, errors: [] }),
     status: () => ({ cached: 1 }),
+    resync: () => {},
     ...overrides,
   })
 }
 
 describe('api', () => {
+  test('POST /api/resync triggers a resync', async () => {
+    let calls = 0
+    const res = await api({ resync: () => calls++ })['/api/resync'].POST()
+    expect(calls).toBe(1)
+    expect(await res.json()).toEqual({ ok: true })
+  })
+
   test('search returns rows', async () => {
     const res = api()['/api/search'](new Request('http://x/api/search?q=hit'))
     expect(res.status).toBe(200)

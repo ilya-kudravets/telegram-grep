@@ -59,6 +59,10 @@ export const en = {
   skippedShort: ' · {0} skipped',
   errorsShort: ' · {0} errors',
   templatesBtn: 'Templates',
+  resyncBtn: 'Full resync',
+  resyncHint:
+    'Forget what has already been synced and walk all history again. Nothing cached is lost.',
+  resyncStarted: 'resync started',
   tplPasswords: 'passwords',
   tplCodes: 'codes / OTP',
   tplTokens: 'API keys & tokens',

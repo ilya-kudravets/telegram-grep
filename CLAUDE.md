@@ -30,7 +30,7 @@ cwd stays the root, so `.env` and `data/` live there.
   one UI**: `web/main.tsx` (self-hosted; `data-server.ts` talks to `/api` + the WebSocket) and
   `web/static.tsx` (server-less GitHub Pages build; `core-client.ts` drives `@tg/core` against
   `@mtcute/web` in the tab). `web/app.tsx` knows neither — it takes an injected `DataLayer`
-  (search / delete / status subscription), so a UI change lands in both. The static entry keeps
+  (search / delete / status subscription / full resync), so a UI change lands in both. The static entry keeps
   credentials in the clear and **both** the cache snapshot and the session sealed under one
   passphrase-derived key in IndexedDB (`store.ts` + `crypto.ts`: `createVault` for a new
   passphrase, `unlockVault` for an existing record, which doubles as the passphrase proof — so

@@ -53,6 +53,10 @@ export const ru: Partial<Dict> = {
   skippedShort: ' · пропущено {0}',
   errorsShort: ' · ошибок {0}',
   templatesBtn: 'Шаблоны',
+  resyncBtn: 'Полный ресинк',
+  resyncHint:
+    'Забыть, что уже синхронизировано, и пройти всю историю заново. Кэш при этом не теряется.',
+  resyncStarted: 'ресинк запущен',
   tplPasswords: 'пароли',
   tplCodes: 'коды / OTP',
   tplTokens: 'ключи и токены',

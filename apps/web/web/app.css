@@ -194,6 +194,20 @@ input[type="search"]:focus-visible {
 .statusbar .err {
   color: var(--red);
 }
+/* the row is a status line, so its one action sits quietly at the far end */
+.statusbar button {
+  margin-left: auto;
+  background: none;
+  border: 0;
+  color: var(--tint);
+  font: inherit;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+.statusbar button:disabled {
+  color: var(--label-3);
+  cursor: default;
+}
 
 /* --- edit toolbar --- */
 .toolbar {
