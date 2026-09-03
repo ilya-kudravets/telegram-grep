@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/ilya-kudravets/telegram-grep/compare/v0.8.0...v0.8.1) (2026-09-03)
+
+
+### Bug Fixes
+
+* propagate cleared Telegram history to the cache, and harden security ([#47](https://github.com/ilya-kudravets/telegram-grep/issues/47)) ([f82d721](https://github.com/ilya-kudravets/telegram-grep/commit/f82d721b946c629bda51512b8724279037e8a0d8))
+
 ## [0.8.0](https://github.com/ilya-kudravets/telegram-grep/compare/v0.7.0...v0.8.0) (2026-09-03)
 
 
