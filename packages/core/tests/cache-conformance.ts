@@ -114,10 +114,27 @@ export function testCache(label: string, open: () => Cache) {
       expect(c.backfillState(1)).toEqual({ oldestId: 42, backfilled: true })
     })
 
-    test("resetSyncState clears every chat's bookkeeping but keeps the messages", () => {
+    test('upsertChat stores a peer kind, and an omitted one leaves a known one standing', () => {
+      const c = open()
+      c.upsertChat(1, 'Chan', 'channel')
+      c.insertMessages([msg()])
+      expect([...c.iterAll()][0]!.chat_kind).toBe('channel')
+      // realtime and backfill both upsert without a kind; neither may erase the label
+      c.upsertChat(1, 'Chan renamed')
+      expect([...c.iterAll()][0]!.chat_kind).toBe('channel')
+    })
+
+    test('a chat stored without a kind reads back as unlabelled', () => {
       const c = open()
       c.upsertChat(1, 'Chat One')
-      c.upsertChat(2, 'Chat Two')
+      c.insertMessages([msg()])
+      expect([...c.iterAll()][0]!.chat_kind).toBe('')
+    })
+
+    test("resetSyncState clears every chat's bookkeeping but keeps the messages", () => {
+      const c = open()
+      c.upsertChat(1, 'Chat One', 'private')
+      c.upsertChat(2, 'Chat Two', 'private')
       c.bumpLastMsgId(1, 99)
       c.setOldestId(1, 42)
       c.markBackfilled(1)
@@ -134,6 +151,8 @@ export function testCache(label: string, open: () => Cache) {
       // stay labelled while it runs
       expect(c.count()).toBe(2)
       expect([...c.iterAll()].map((r) => r.chat_title).sort()).toEqual(['Chat One', 'Chat Two'])
+      // kinds are not sync bookkeeping either — the filter must keep working during a resync
+      expect([...c.iterAll()].every((r) => r.chat_kind === 'private')).toBe(true)
     })
 
     test('deleteMessages removes only given ids in chat', () => {

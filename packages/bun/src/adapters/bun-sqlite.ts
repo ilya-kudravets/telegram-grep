@@ -8,6 +8,7 @@ import {
   type CachedMessage,
   MIGRATION_COLUMNS,
   MIN_CHANNEL_MARKED,
+  type PeerKind,
   SCHEMA_SQL,
   type SearchRow,
   SQL,
@@ -45,10 +46,10 @@ export function openCache(path: string): Cache {
   })
 
   return {
-    upsertChat(id: number, title: string | null | undefined) {
+    upsertChat(id: number, title: string | null | undefined, kind: PeerKind | '' = '') {
       // some peers (deleted accounts, odd service peers) have no displayName → bind '' not NULL,
       // otherwise SQLite raises NOT NULL on chats.title (the column default only applies when omitted)
-      upsertChatStmt.run(id, title ?? '')
+      upsertChatStmt.run(id, title ?? '', kind)
     },
     lastMsgId(chatId: number): number {
       return (lastMsgIdStmt.get(chatId) as { last_msg_id: number } | null)?.last_msg_id ?? 0

@@ -1,8 +1,14 @@
-import type { DeleteResult, DeleteTarget, SearchRow } from '@tg/bun'
+import {
+  type DeleteResult,
+  type DeleteTarget,
+  type PeerKind,
+  parseKinds,
+  type SearchRow,
+} from '@tg/bun'
 
 export interface ApiDeps {
   // null → invalid pattern
-  search: (pattern: string) => SearchRow[] | null
+  search: (pattern: string, kinds?: Set<PeerKind>) => SearchRow[] | null
   del: (targets: DeleteTarget[]) => Promise<DeleteResult>
   status: () => object
   /** Forgets the sync bookkeeping and starts a fresh full walk. */
@@ -13,9 +19,10 @@ export interface ApiDeps {
 export function makeApi(deps: ApiDeps) {
   return {
     '/api/search': (req: Request) => {
-      const q = new URL(req.url).searchParams.get('q') ?? ''
+      const params = new URL(req.url).searchParams
+      const q = params.get('q') ?? ''
       if (!q.trim()) return Response.json({ rows: [] })
-      const rows = deps.search(q)
+      const rows = deps.search(q, parseKinds(params.get('kinds')))
       if (rows === null) return Response.json({ error: 'невалидный regex' }, { status: 400 })
       return Response.json({ rows })
     },

@@ -18,7 +18,17 @@ cwd stays the root, so `.env` and `data/` live there.
   `isBroadcast` (sync.ts) is the one place that decides a peer is a feed rather than
   correspondence: `syncAll` and `attachRealtime` both skip those unless their last argument says
   otherwise (`syncChannels()` reads `SYNC_CHANNELS=1` on the Bun side; the browser has no env and
-  always skips). `patterns.ts` holds the UI's ready-made search templates — labels are i18n keys,
+  always skips). `peerKind` (sync.ts) is the *other* classifier and answers a different question —
+  which of `PeerKind`'s five buckets a peer is labelled with for the "where to search" filter.
+  **The two are allowed to disagree, and do**: a gigagroup is labelled `channel` (admin-only, it
+  reads as a feed) yet is still downloaded, because it used to be a supergroup and the member
+  messages from before its conversion are the user's. The rule is *skip conservatively, label by
+  how it reads* — a wrong skip loses data, a wrong label hides it behind a checkbox. Both read only
+  fields already on the dialog peer; `linkedChat` (which would identify a channel's discussion
+  group) lives on `FullChat` and would cost a round trip per peer, so comments are simply `group`.
+  The label is stored per chat (`chats.kind`, added via `MIGRATION_COLUMNS`); `''` means never
+  seen in a dialog list and is never filtered out, and `searchCache` applies the filter **before**
+  its limit so excluded rows can't eat the budget. `patterns.ts` holds the UI's ready-made search templates — labels are i18n keys,
   not text, so the list stays UI rather than data.
   Two `Cache` adapters implement its port: `bun:sqlite` (`packages/bun`) and the in-memory one
   (`cache-memory.ts`) the browser client persists snapshots of. Both must satisfy

@@ -10,7 +10,7 @@ testCache('memory', () => createMemoryCache())
 describe('memory cache snapshots', () => {
   test('a snapshot restores messages, titles and per-chat sync state', () => {
     const a = createMemoryCache()
-    a.upsertChat(1, 'Chat One')
+    a.upsertChat(1, 'Chat One', 'private')
     a.insertMessages([
       { chat_id: 1, id: 10, date: 1700000000, sender: 'Alice', text: 'hello', out: 0 },
     ])
@@ -28,6 +28,7 @@ describe('memory cache snapshots', () => {
       text: 'hello',
       out: 0,
       chat_title: 'Chat One',
+      chat_kind: 'private',
     })
     expect(b.lastMsgId(1)).toBe(10)
     expect(b.backfillState(1)).toEqual({ oldestId: 3, backfilled: true })

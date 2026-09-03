@@ -11,6 +11,7 @@ import {
   onFlood,
   openCache,
   searchCache,
+  searchKinds,
   syncAll,
   syncChannels,
   t,
@@ -43,7 +44,7 @@ const { runTui } = await import('./tui')
 const tui = await runTui(t, {
   search: (pattern) => {
     const re = compilePattern(pattern)
-    return re ? searchCache(cache, re) : []
+    return re ? searchCache(cache, re, undefined, searchKinds()) : []
   },
   del: (targets) => deleteEverywhere(tg, cache, targets),
   // ^P cycles the built-in templates first, then whatever patterns.txt adds — the same
