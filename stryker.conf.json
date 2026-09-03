@@ -23,6 +23,7 @@
     "packages/core/src/cache.ts",
     "packages/core/src/cache-memory.ts",
     "packages/core/src/deleter.ts",
+    "packages/core/src/pacer.ts",
     "packages/core/src/search.ts",
     "packages/core/src/sync.ts"
   ],

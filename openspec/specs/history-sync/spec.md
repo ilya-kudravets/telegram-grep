@@ -49,6 +49,40 @@ A flood-wait response MUST be treated as a wait: reported to the interface, slep
 - **WHEN** the backoff is exercised in tests
 - **THEN** the sleep is injectable, so the test does not spend real seconds waiting
 
+### Requirement: The request rate is paced and learned, not guessed
+
+A flood wait is a penalty paid after the fact, and an expensive one: the transport sleeps the whole window and remembers it per method, so one trip stalls every other call to that method. Staying under the limit is therefore worth more than handling the penalty well.
+
+The limit is not published, differs per account and changes over time, so it MUST be learned at runtime rather than configured: the gap between the bulk read calls MUST shrink while responses stay clean and widen when one floods. A gap that has flooded MUST NOT be probed below again, so the system settles under the limit instead of rediscovering it — subject to a ceiling, so a limit tightened by something outside this process does not slow every later request for good.
+
+Pacing MUST apply to the whole connection rather than to one walk, since a sync, a search and a delete share the account's budget, and MUST sit where the raw flood responses are visible — outside the retrying layer a flood looks only like a slow call.
+
+#### Scenario: A long dump on an untested account
+- **WHEN** history is downloaded continuously
+- **THEN** the gap narrows while Telegram is content and widens as soon as it is not, without the user configuring anything
+
+#### Scenario: The same wall twice
+- **WHEN** a gap has already produced a flood wait
+- **THEN** later pacing stays above it rather than returning to it, so the penalty is paid a couple of times and not repeatedly
+
+#### Scenario: Calls that are not part of a bulk walk
+- **WHEN** a deletion or an authentication call is made
+- **THEN** it is not paced, because it is not what exhausts the budget
+
+### Requirement: Chats are walked concurrently
+
+A history page is a round trip, so walking chats strictly one at a time leaves the connection idle for most of a sync. Several chats MUST be in flight at once, bounded to a small number. This MUST NOT raise the request rate — the pacing above is what governs that, so overlapping calls fill the waiting rather than adding load.
+
+Each chat's own pages MUST stay sequential, because the backfill frontier is what makes an interrupted walk resumable. Every chat MUST be walked exactly once, and a failure in one MUST NOT abort the others.
+
+#### Scenario: Many chats to walk
+- **WHEN** a sync has more chats than the concurrency bound
+- **THEN** that many are in flight at a time, each one picked up exactly once, and all of them are finished before the run reports done
+
+#### Scenario: One chat fails while others are in flight
+- **WHEN** a chat errors mid-run
+- **THEN** it is recorded and the chats running alongside it finish normally
+
 ### Requirement: One unreachable chat does not abort the run
 
 A failure for a single chat MUST be recorded and reported, its sync state left intact, and the remaining chats MUST still be synced.

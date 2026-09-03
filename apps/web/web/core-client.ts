@@ -7,9 +7,10 @@
 // passphrase (crypto.ts) before it ever reaches IndexedDB. The cache snapshot goes
 // through the same vault — message text is exactly as worth encrypting as the session.
 import wasmUrl from '@mtcute/wasm/mtcute.wasm' with { type: 'file' }
-import { MemoryStorage, TelegramClient, WebCryptoProvider } from '@mtcute/web'
+import { MemoryStorage, networkMiddlewares, TelegramClient, WebCryptoProvider } from '@mtcute/web'
 import { type CacheSnapshot, createMemoryCache } from '@tg/core/cache-memory'
 import { deleteEverywhere } from '@tg/core/deleter'
+import { createPacingMiddleware } from '@tg/core/pacer'
 import { compilePattern, searchCache } from '@tg/core/search'
 import { attachRealtime, syncAll } from '@tg/core/sync'
 import type { DataLayer, Status } from './app'
@@ -89,6 +90,10 @@ export async function createBrowserClient(creds: AppCreds, vault: Vault): Promis
     // as "expected magic word". Import it as an asset instead, so the bundler emits it
     // and hands us the URL it actually lives at.
     crypto: new WebCryptoProvider({ wasmInput: wasmUrl }),
+    // Same pacing the Bun clients get: a tab has the same account-wide rate limit, and
+    // a flood here stalls a sync the user is watching. Innermost, after basic() — see
+    // pacer.ts for why it has to sit inside the flood waiter.
+    network: { middlewares: [...networkMiddlewares.basic(), createPacingMiddleware()] },
   })
   tg.log.mgr.level = 1 // errors only; the default chats about every update in the console
 

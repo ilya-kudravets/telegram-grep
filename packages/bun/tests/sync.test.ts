@@ -642,3 +642,65 @@ describe('resync prunes what Telegram no longer has', () => {
     expect(cache.count()).toBe(2)
   })
 })
+
+// A history page is a round trip — mostly waiting. Walking chats strictly one at a time
+// spends most of a sync idle; the request rate is held down by the pacing middleware
+// instead (see @tg/core/pacer), so overlapping chats fills the latency rather than adding
+// to the load.
+describe('chats are walked concurrently', () => {
+  /** Resolves getHistory only once `n` calls are in flight — a deadlock unless they overlap. */
+  function needsOverlap(n: number, chats: Record<number, MsgLike[]>): SyncClient {
+    const base = fakeClient(chats)
+    let waiting = 0
+    let release: (() => void) | undefined
+    const everyone = new Promise<void>((r) => {
+      release = r
+    })
+    return {
+      ...base,
+      async getHistory(chatId, params) {
+        if (++waiting >= n) release!()
+        await everyone
+        return base.getHistory(chatId, params)
+      },
+    }
+  }
+
+  test('several chats are in flight at once', async () => {
+    const cache = openCache(':memory:')
+    const chats = Object.fromEntries([1, 2, 3, 4].map((id) => [id, [msg(id, `m${id}`, id)]]))
+    // times out rather than fails if the walk is sequential — nothing releases the gate
+    const p = await syncAll(needsOverlap(4, chats), cache)
+    expect(p.chatsDone).toBe(4)
+    expect(cache.count()).toBe(4)
+  })
+
+  test('every chat is still visited exactly once, and none is dropped', async () => {
+    const cache = openCache(':memory:')
+    const ids = Array.from({ length: 30 }, (_, i) => i + 1)
+    const tg = fakeClient(Object.fromEntries(ids.map((id) => [id, [msg(id, `m${id}`, id)]])))
+    const p = await syncAll(tg, cache)
+    expect(p.chatsDone).toBe(30)
+    expect(cache.count()).toBe(30)
+    // one worker taking a chat another already claimed would show up as a duplicate walk
+    expect(new Set(tg.getHistoryCalls.map((c) => c.chatId)).size).toBe(30)
+  })
+
+  test('a chat that fails does not take its neighbours down with it', async () => {
+    const ids = [1, 2, 3, 4, 5, 6]
+    const chats = Object.fromEntries(ids.map((id) => [id, [msg(id, `m${id}`, id)]]))
+    const base = fakeClient(chats)
+    const tg: SyncClient = {
+      ...base,
+      async getHistory(chatId, params) {
+        if (chatId % 2 === 0) throw new Error('Telegram API error 400: PEER_ID_INVALID')
+        return base.getHistory(chatId, params)
+      },
+    }
+    const cache = openCache(':memory:')
+    const p = await syncAll(tg, cache)
+    expect(p.chatsDone).toBe(6)
+    expect(p.errors).toHaveLength(3)
+    expect(cache.count()).toBe(3)
+  })
+})
