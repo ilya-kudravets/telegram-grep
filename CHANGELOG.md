@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.0](https://github.com/ilya-kudravets/telegram-grep/compare/v0.4.0...v0.5.0) (2026-09-03)
+
+
+### Features
+
+* skip broadcast channels, and offer ready-made search templates ([#37](https://github.com/ilya-kudravets/telegram-grep/issues/37)) ([c01d370](https://github.com/ilya-kudravets/telegram-grep/commit/c01d37029b8fe23c344996ad06a0882d871ef1f1))
+
+
+### Bug Fixes
+
+* **auth:** say where the login code went, and why one was rejected ([#34](https://github.com/ilya-kudravets/telegram-grep/issues/34)) ([a62ad77](https://github.com/ilya-kudravets/telegram-grep/commit/a62ad77fe8e0a854d0a8f30cdcc7d1936ef08227))
+* **auth:** show Telegram's resend offer, and name its rate limits ([#36](https://github.com/ilya-kudravets/telegram-grep/issues/36)) ([9b80c2d](https://github.com/ilya-kudravets/telegram-grep/commit/9b80c2d2a80ed93d260232d8d25fbef3c280d3c2))
+
 ## [0.4.0](https://github.com/ilya-kudravets/telegram-grep/compare/v0.3.0...v0.4.0) (2026-09-02)
 
 
