@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.0](https://github.com/ilya-kudravets/telegram-grep/compare/v0.7.0...v0.8.0) (2026-09-03)
+
+
+### Features
+
+* smarter and more search templates ([#44](https://github.com/ilya-kudravets/telegram-grep/issues/44)) ([795f237](https://github.com/ilya-kudravets/telegram-grep/commit/795f23778a1b0f410e9f5c5b4e862133c9ca68c4))
+
+
+### Bug Fixes
+
+* **web:** say that erasing is local, not a deletion from Telegram ([#42](https://github.com/ilya-kudravets/telegram-grep/issues/42)) ([488f24e](https://github.com/ilya-kudravets/telegram-grep/commit/488f24e688cf53f34d14aeda4ff9904a2aeef210))
+
 ## [0.7.0](https://github.com/ilya-kudravets/telegram-grep/compare/v0.6.0...v0.7.0) (2026-09-03)
 
 
