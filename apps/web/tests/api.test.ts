@@ -10,6 +10,7 @@ const row: SearchRow = {
   text: 'hit',
   out: 0,
   chat_title: 'Chat',
+  chat_kind: 'private',
 }
 
 function api(overrides: Partial<Parameters<typeof makeApi>[0]> = {}) {
@@ -34,6 +35,20 @@ describe('api', () => {
     const res = api()['/api/search'](new Request('http://x/api/search?q=hit'))
     expect(res.status).toBe(200)
     expect(((await res.json()) as { rows: unknown }).rows).toEqual([row])
+  })
+
+  test('?kinds restricts the search, and its absence means no filter', async () => {
+    const seen: (Set<string> | undefined)[] = []
+    const withSpy = () =>
+      api({
+        search: (_p, kinds) => {
+          seen.push(kinds)
+          return [row]
+        },
+      })['/api/search']
+    withSpy()(new Request('http://x/api/search?q=hit&kinds=private,group'))
+    withSpy()(new Request('http://x/api/search?q=hit'))
+    expect(seen).toEqual([new Set(['private', 'group']), undefined])
   })
 
   test('empty query → empty rows without calling search', async () => {

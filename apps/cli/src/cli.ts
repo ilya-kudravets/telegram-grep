@@ -12,6 +12,7 @@ import {
   openCache,
   resolveCreds,
   searchCache,
+  searchKinds,
   syncAll,
   syncChannels,
 } from '@tg/bun'
@@ -101,7 +102,7 @@ export async function runCli(argv: string[]): Promise<number> {
         }
       }
       const cache = openDb()
-      const results = searchCache(cache, re, limit)
+      const results = searchCache(cache, re, limit, searchKinds())
       cache.close()
       out({ count: results.length, results })
       return 0

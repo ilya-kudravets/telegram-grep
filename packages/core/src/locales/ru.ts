@@ -53,6 +53,13 @@ export const ru: Partial<Dict> = {
   skippedShort: ' · пропущено {0}',
   errorsShort: ' · ошибок {0}',
   templatesBtn: 'Шаблоны',
+  scopeBtn: 'Где искать',
+  scopeSaved: 'избранное',
+  scopePrivate: 'личные чаты',
+  scopeBots: 'боты и сервисы',
+  scopeGroups: 'группы',
+  scopeChannels: 'каналы',
+  scopeHint: 'чаты без метки типа ищутся всегда',
   resyncBtn: 'Полный ресинк',
   resyncHint:
     'Забыть, что уже синхронизировано, и пройти всю историю заново. Кэш при этом не теряется.',

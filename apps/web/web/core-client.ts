@@ -139,11 +139,11 @@ export async function createBrowserClient(creds: AppCreds, vault: Vault): Promis
 
   return {
     data: {
-      async search(query) {
+      async search(query, kinds) {
         const re = compilePattern(query)
         // '' → the view shows its own "invalid regex"; matches what the API returns
         if (!re) return { error: '' }
-        return { rows: searchCache(cache, re) }
+        return { rows: searchCache(cache, re, undefined, new Set(kinds)) }
       },
 
       async del(targets) {

@@ -1,6 +1,19 @@
 import type { TelegramClient } from '@mtcute/core/client.js'
 import { Dispatcher } from '@mtcute/dispatcher'
-import type { Cache, CachedMessage } from './cache'
+import type { Cache, CachedMessage, PeerKind } from './cache'
+
+/**
+ * The subset of mtcute's `Peer` (= `User | Chat`) that classification reads. Only `Chat`
+ * carries `chatType`; only `User` carries `isBot`/`isSelf`, so which fields are present
+ * is itself the user-vs-chat signal.
+ */
+export interface PeerLike {
+  id: number
+  displayName: string
+  chatType?: string
+  isBot?: boolean
+  isSelf?: boolean
+}
 
 // The subset of mtcute's Message we actually read — keeps tests free of mtcute internals
 export interface MsgLike {
@@ -9,8 +22,7 @@ export interface MsgLike {
   date: Date
   isOutgoing: boolean
   sender: { displayName: string }
-  // chatType comes from mtcute's Chat; a private chat's peer is a User and has none
-  chat: { id: number; displayName: string; chatType?: string }
+  chat: PeerLike
 }
 
 /**
@@ -18,13 +30,51 @@ export interface MsgLike {
  * you are an admin, and a single channel's archive dwarfs every real chat you have — so
  * downloading them is the bulk of a sync and none of its value. Skipped by default;
  * `gigagroup`/`supergroup`/`group` stay, since your own messages live in those.
+ *
+ * NB deliberately narrower than `peerKind(...) === 'channel'`. The two answer different
+ * questions, and they are allowed to disagree: **skip conservatively, label by how it
+ * reads.** A gigagroup is admin-only *now*, so it reads as a feed and is labelled one —
+ * but it used to be an ordinary supergroup, and the member messages from before its
+ * conversion are still yours to find. Declining to download those would silently lose
+ * exactly what this tool exists to surface, whereas mislabelling them only hides them
+ * behind a checkbox the user can tick.
  */
 export const isBroadcast = (chat: { chatType?: string }) => chat.chatType === 'channel'
+
+/** chatTypes nobody but an admin can post to — they read as feeds in a result list. */
+const FEEDS = new Set(['channel', 'gigagroup', 'community'])
+
+/** Telegram's service-notifications account: where login codes arrive. Not a bot. */
+export const SERVICE_NOTIFICATIONS_ID = 777000
+
+/**
+ * Which bucket a peer belongs to (see `PeerKind` for what the buckets are for).
+ *
+ * Only a `Chat` has a chatType, so its absence means the peer is a `User`. Of mtcute's
+ * six chatTypes, `channel`/`gigagroup`/`community` are admin-only feeds, while
+ * `group`/`supergroup`/`monoforum` are rooms an ordinary member writes in — a monoforum
+ * included, since it holds *your* direct messages to a channel's admins.
+ *
+ * Costs nothing extra: every field read here is already on the dialog peer. Telling a
+ * channel's discussion group apart from any other supergroup would need `getFullChat`
+ * per peer — a round trip each, with flood-wait exposure — and would change nothing:
+ * comments are your messages in a supergroup, which is what `group` already means.
+ */
+export function peerKind(peer: {
+  id: number
+  chatType?: string
+  isBot?: boolean
+  isSelf?: boolean
+}): PeerKind {
+  if (peer.chatType) return FEEDS.has(peer.chatType) ? 'channel' : 'group'
+  if (peer.isSelf) return 'saved'
+  return peer.isBot || peer.id === SERVICE_NOTIFICATIONS_ID ? 'bot' : 'private'
+}
 
 // The subset of TelegramClient sync needs
 export interface SyncClient {
   iterDialogs(params?: object): AsyncIterable<{
-    peer: { id: number; displayName: string; chatType?: string }
+    peer: PeerLike
     lastMessage: { id: number } | null // newest message id — lets us skip unchanged chats
   }>
   iterHistory(chatId: number, params?: { minId?: number }): AsyncIterable<MsgLike>
@@ -141,9 +191,12 @@ export async function syncAll(
 ): Promise<SyncProgress> {
   // NB: keep the Peer instance as-is — id/displayName are prototype getters that a
   // `{...dialog.peer}` spread would silently drop (→ getHistory(undefined)).
-  const dialogs: { peer: { id: number; displayName: string; chatType?: string }; topId: number }[] =
-    []
+  const dialogs: { peer: PeerLike; topId: number }[] = []
   for await (const dialog of tg.iterDialogs()) {
+    // Label first, skip second. A channel we decline to download still has messages in
+    // the cache from before it was skipped, and the "where to search" filter can only
+    // hide them if something wrote down what kind of peer they came from.
+    cache.upsertChat(dialog.peer.id, dialog.peer.displayName, peerKind(dialog.peer))
     if (!includeBroadcasts && isBroadcast(dialog.peer)) continue
     dialogs.push({ peer: dialog.peer, topId: dialog.lastMessage?.id ?? 0 })
   }
@@ -156,7 +209,8 @@ export async function syncAll(
     errors: [],
   }
   for (const { peer, topId } of dialogs) {
-    cache.upsertChat(peer.id, peer.displayName)
+    // NB no upsertChat here: the enumeration loop above already recorded every peer it
+    // pushed, title and kind both, and it runs before any message is inserted
     progress.chatTitle = peer.displayName
     try {
       for (;;) {
@@ -209,7 +263,7 @@ export function attachRealtime(
   const dp = makeDispatcher(tg)
   dp.onNewMessage(async (msg) => {
     if (!includeBroadcasts && isBroadcast(msg.chat)) return // same reasoning as syncAll's filter
-    cache.upsertChat(msg.chat.id, msg.chat.displayName)
+    cache.upsertChat(msg.chat.id, msg.chat.displayName, peerKind(msg.chat))
     const c = toCached(msg)
     if (c) cache.insertMessages([c])
     // ponytail: this bump can race an unfinished first sync of the same chat —

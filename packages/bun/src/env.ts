@@ -1,5 +1,6 @@
 import { writeFileSync } from 'node:fs'
 import { unpackCreds } from '@tg/core/creds'
+import { parseKinds } from '@tg/core/search'
 
 // re-exported so the packing stays reachable through the single @tg/bun barrel
 export { packCreds, unpackCreds } from '@tg/core/creds'
@@ -36,6 +37,15 @@ export function resolveCreds(
  */
 export const syncChannels = (env: Record<string, string | undefined> = process.env) =>
   env.SYNC_CHANNELS === '1'
+
+/**
+ * `SEARCH_KINDS=private,group` restricts which peer types the CLI and TUI search — the
+ * headless counterpart of the web UI's "where" filter. Unset means everything, which is
+ * the right default for a tool an agent drives: a filter it never asked for silently
+ * hiding matches would be worse than noise.
+ */
+export const searchKinds = (env: Record<string, string | undefined> = process.env) =>
+  parseKinds(env.SEARCH_KINDS)
 
 // Bun loads .env once at process start, so a file created here only helps the *next* run.
 // Skip it if real env vars already supply the creds (e.g. Docker/CI) — no .env needed there.

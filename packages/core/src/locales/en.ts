@@ -59,6 +59,13 @@ export const en = {
   skippedShort: ' · {0} skipped',
   errorsShort: ' · {0} errors',
   templatesBtn: 'Templates',
+  scopeBtn: 'Where',
+  scopeSaved: 'saved messages',
+  scopePrivate: 'private chats',
+  scopeBots: 'bots & service',
+  scopeGroups: 'groups',
+  scopeChannels: 'channels',
+  scopeHint: 'chats not yet labelled are always searched',
   resyncBtn: 'Full resync',
   resyncHint:
     'Forget what has already been synced and walk all history again. Nothing cached is lost.',

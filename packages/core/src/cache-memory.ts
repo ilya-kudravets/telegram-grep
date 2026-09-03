@@ -11,7 +11,13 @@
 // ponytail: a Telegram archive that fits a phone fits an array. Add paging (or
 // sqlite-wasm in a worker behind an async port) if a cache ever outgrows the tab's heap.
 import { toggleChannelIdMark } from '@mtcute/core/utils.js'
-import { type Cache, type CachedMessage, MIN_CHANNEL_MARKED, type SearchRow } from './cache'
+import {
+  type Cache,
+  type CachedMessage,
+  MIN_CHANNEL_MARKED,
+  type PeerKind,
+  type SearchRow,
+} from './cache'
 
 /** One row of the `chats` table, named as the port speaks rather than as SQL does. */
 export interface ChatRow {
@@ -19,6 +25,7 @@ export interface ChatRow {
   lastMsgId: number
   oldestId: number
   backfilled: boolean
+  kind: PeerKind | ''
 }
 
 /** Plain, JSON-serialisable state — what a persistence layer stores and restores. */
@@ -32,10 +39,21 @@ export interface MemoryCache extends Cache {
   snapshot(): CacheSnapshot
 }
 
-const emptyChat = (): ChatRow => ({ title: '', lastMsgId: 0, oldestId: 0, backfilled: false })
+const emptyChat = (): ChatRow => ({
+  title: '',
+  lastMsgId: 0,
+  oldestId: 0,
+  backfilled: false,
+  kind: '',
+})
 
 export function createMemoryCache(from?: CacheSnapshot): MemoryCache {
-  const chats = new Map<number, ChatRow>(from?.chats)
+  // rows are merged onto a fresh default, so a snapshot written before a field existed
+  // restores with that field defaulted instead of `undefined` (the sqlite adapter gets
+  // the same treatment from `alter table … default`)
+  const chats = new Map<number, ChatRow>(
+    (from?.chats ?? []).map(([id, row]) => [id, { ...emptyChat(), ...row }]),
+  )
   // chat id → message id → message: mirrors the primary key, so the per-chat deletes
   // the port exposes stay a single lookup instead of a scan
   const messages = new Map<number, Map<number, CachedMessage>>()
@@ -71,10 +89,13 @@ export function createMemoryCache(from?: CacheSnapshot): MemoryCache {
   }
 
   return {
-    upsertChat(id: number, title: string | null | undefined) {
+    upsertChat(id: number, title: string | null | undefined, kind: PeerKind | '' = '') {
       // peers without a displayName (deleted accounts, odd service peers) store '' —
       // the port promises a string to every reader of chat_title
-      chat(id).title = title ?? ''
+      const row = chat(id)
+      row.title = title ?? ''
+      // mirrors SQL.upsertChat: an omitted kind leaves a known one standing
+      if (kind) row.kind = kind
     },
     lastMsgId(chatId: number): number {
       return chats.get(chatId)?.lastMsgId ?? 0
@@ -127,7 +148,8 @@ export function createMemoryCache(from?: CacheSnapshot): MemoryCache {
       const rows: SearchRow[] = []
       for (const byId of messages.values()) {
         for (const m of byId.values()) {
-          rows.push({ ...m, chat_title: chats.get(m.chat_id)?.title ?? '' })
+          const row = chats.get(m.chat_id)
+          rows.push({ ...m, chat_title: row?.title ?? '', chat_kind: row?.kind ?? '' })
         }
       }
       rows.sort((a, b) => b.date - a.date) // newest first, as SQL.search orders

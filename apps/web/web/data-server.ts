@@ -22,8 +22,10 @@ export function createServerData(): DataLayer {
     fetch(path, { ...opts, headers: { ...opts.headers, authorization: `Bearer ${token}` } })
 
   return {
-    async search(query) {
-      const res = await apiFetch(`/api/search?q=${encodeURIComponent(query)}`)
+    async search(query, kinds) {
+      const res = await apiFetch(
+        `/api/search?q=${encodeURIComponent(query)}&kinds=${encodeURIComponent(kinds.join(','))}`,
+      )
       const body = (await res.json()) as { rows?: Row[]; error?: string }
       return res.ok ? { rows: body.rows ?? [] } : { error: body.error ?? '' }
     },

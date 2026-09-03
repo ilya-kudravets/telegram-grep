@@ -91,9 +91,9 @@ const serveOpts = {
     ...guardRoutes(
       token,
       makeApi({
-        search: (pattern: string) => {
+        search: (pattern, kinds) => {
           const re = compilePattern(pattern)
-          return re ? searchCache(cache, re) : null
+          return re ? searchCache(cache, re, undefined, kinds) : null
         },
         del: (targets: Parameters<typeof deleteEverywhere>[2]) =>
           deleteEverywhere(tg, cache, targets),

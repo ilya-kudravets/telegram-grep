@@ -5,6 +5,9 @@ import {
   floodWaitSeconds,
   type MsgLike,
   openCache,
+  type PeerKind,
+  peerKind,
+  SERVICE_NOTIFICATIONS_ID,
   type SyncClient,
   sleep,
   syncAll,
@@ -70,12 +73,15 @@ function fakeClient(historyByChat: Record<number, MsgLike[]>): SyncClient & {
   }
 }
 
-// one dialog per entry, with the chat type Telegram would report
-function typedDialogClient(chats: { id: number; chatType?: string }[]): SyncClient {
+// one dialog per entry, as mtcute would report it: a Chat carries chatType, a User
+// carries isBot/isSelf instead
+function typedDialogClient(
+  chats: { id: number; chatType?: string; isBot?: boolean; isSelf?: boolean }[],
+): SyncClient {
   return {
     async *iterDialogs() {
-      for (const { id, chatType } of chats) {
-        yield { peer: { id, displayName: `Chat ${id}`, chatType }, lastMessage: { id: 10 } }
+      for (const peer of chats) {
+        yield { peer: { displayName: `Chat ${peer.id}`, ...peer }, lastMessage: { id: 10 } }
       }
     },
     async *iterHistory() {},
@@ -319,6 +325,53 @@ describe('broadcast channels', () => {
     const p = await syncAll(typedDialogClient([{ id: 1, chatType: 'channel' }]), cache)
     expect(p.chatsTotal).toBe(0)
     expect(cache.count()).toBe(0)
+  })
+
+  test('a skipped channel is still labelled, so the search filter can hide its old rows', async () => {
+    const cache = openCache(':memory:')
+    // a row from before the channel was ever skipped
+    cache.insertMessages([
+      { chat_id: 1, id: 7, date: 1700000000, sender: 'A', text: 'old', out: 0 },
+    ])
+    await syncAll(typedDialogClient([{ id: 1, chatType: 'channel' }]), cache)
+    expect([...cache.iterAll()][0]).toMatchObject({ chat_title: 'Chat 1', chat_kind: 'channel' })
+  })
+
+  // Every chatType mtcute can report, plus the User shapes, with the reasoning in
+  // packages/core/src/cache.ts's PeerKind docs. Telegram's own docs are the source for
+  // who may post: only admins in a broadcast channel or a gigagroup.
+  test.each([
+    // chatType peers
+    [{ id: -1001, chatType: 'group' }, 'group'], // legacy/basic group
+    [{ id: -1002, chatType: 'supergroup' }, 'group'],
+    [{ id: -1003, chatType: 'monoforum' }, 'group'], // your DMs to a channel's admins
+    [{ id: -1004, chatType: 'channel' }, 'channel'], // broadcast
+    [{ id: -1005, chatType: 'gigagroup' }, 'channel'], // "broadcast group": admins only
+    [{ id: -1006, chatType: 'community' }, 'channel'], // a collection of linked chats
+    // User peers: no chatType at all
+    [{ id: 42 }, 'private'],
+    [{ id: 43, isBot: true }, 'bot'],
+    [{ id: 44, isSelf: true }, 'saved'], // Saved Messages
+    [{ id: SERVICE_NOTIFICATIONS_ID }, 'bot'], // "Telegram": login codes, and not a bot
+    // a bot that is somehow also you loses the argument to Saved Messages
+    [{ id: 45, isSelf: true, isBot: true }, 'saved'],
+  ] as [Parameters<typeof peerKind>[0], PeerKind][])('peerKind(%o) is %s', (peer, expected) => {
+    expect(peerKind(peer)).toBe(expected)
+  })
+
+  test('a gigagroup reads as a feed but is still downloaded, for its pre-conversion tail', async () => {
+    const cache = openCache(':memory:')
+    const p = await syncAll(typedDialogClient([{ id: -1005, chatType: 'gigagroup' }]), cache)
+    expect(p.chatsTotal).toBe(1) // isBroadcast is deliberately narrower than peerKind
+    expect([...cache.iterAll()][0]!.chat_kind).toBe('channel')
+  })
+
+  test('synced peers are labelled with their kind', async () => {
+    const cache = openCache(':memory:')
+    await syncAll(typedDialogClient([{ id: 1, chatType: 'supergroup' }, { id: 2 }]), cache)
+    const byId = new Map([...cache.iterAll()].map((r) => [r.chat_id, r.chat_kind]))
+    expect(byId.get(1)).toBe('group')
+    expect(byId.get(2)).toBe('private')
   })
 
   test('are synced when explicitly opted in', async () => {

@@ -19,6 +19,25 @@ Telegram TUI client: local cache of all chats, regex search, delete messages acr
   chat you have. Groups, supergroups, gigagroups and private chats are synced as before. Set
   `SYNC_CHANNELS=1` to include channels anyway (already-cached channel messages stay searchable
   either way).
+- **Where to search** — a `Where` button next to the search box picks which kinds of peer
+  count. Telegram has six chat types plus several user shapes; they collapse into five buckets
+  chosen around what this tool is for:
+
+  | bucket | what is in it | why it is its own bucket |
+  | --- | --- | --- |
+  | saved messages | your self-chat | where people deliberately stash passwords and seed phrases |
+  | private chats | correspondence with people | your own writing, deletable |
+  | bots & service | bots, and Telegram's own account (id 777000) | where login codes, 2FA prompts and bank alerts arrive |
+  | groups | basic groups, supergroups, monoforums | rooms your messages live in. **Channel comments land here** — a comment is a message in the channel's linked discussion supergroup |
+  | channels | broadcast channels, gigagroups, communities | feeds: ordinary members cannot post, so nothing there is yours |
+
+  Everything but `channels` is on by default. A chat the cache has no label for yet is **always**
+  searched — hiding messages over a missing label would read as data loss — and one sync labels
+  every peer in your dialog list, channels included. So old channel messages keep showing up
+  until you sync once; a chat you have since left never gets labelled and stays visible.
+
+  The CLI and TUI read the same setting from `SEARCH_KINDS` (`SEARCH_KINDS=private,group`).
+  Unset means everything, which is the right default for a tool an agent drives.
 - **Templates** — the search box has a `Templates` button with ready-made patterns for the things
   people regret sending: passwords, one-time codes, API keys, card numbers, emails, phone numbers,
   crypto addresses, document numbers, postal addresses. `patterns.txt` entries are listed under

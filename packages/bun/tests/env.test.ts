@@ -2,7 +2,14 @@ import { afterEach, beforeEach, expect, test } from 'bun:test'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { ensureEnvFile, packCreds, resolveCreds, unpackCreds } from '@tg/bun'
+import {
+  ensureEnvFile,
+  packCreds,
+  resolveCreds,
+  searchKinds,
+  syncChannels,
+  unpackCreds,
+} from '@tg/bun'
 
 let dir: string
 let envPath: string
@@ -86,4 +93,22 @@ test('a packed blob round-trips and carries neither value in the clear', () => {
 test('an absent or corrupt blob degrades to no baked pair instead of throwing', () => {
   expect(unpackCreds()).toEqual({})
   expect(unpackCreds('not base64 !!')).toEqual({})
+})
+
+test('syncChannels opts in only on an exact 1', () => {
+  expect(syncChannels({ SYNC_CHANNELS: '1' })).toBe(true)
+  expect(syncChannels({ SYNC_CHANNELS: 'true' })).toBe(false)
+  expect(syncChannels({})).toBe(false)
+})
+
+test('SEARCH_KINDS unset means no filter, so nothing is hidden by default', () => {
+  expect(searchKinds({})).toBeUndefined()
+})
+
+test('SEARCH_KINDS parses a list and ignores names this build does not know', () => {
+  expect(searchKinds({ SEARCH_KINDS: 'private,group' })).toEqual(new Set(['private', 'group']))
+  expect(searchKinds({ SEARCH_KINDS: 'private,nonsense' })).toEqual(new Set(['private']))
+  // an all-nonsense value yields an empty set, which searches only unlabelled chats —
+  // deliberately not the same as "unset", so a typo is visible rather than silent
+  expect(searchKinds({ SEARCH_KINDS: 'nonsense' })).toEqual(new Set())
 })

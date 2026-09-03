@@ -1,3 +1,4 @@
+import type { PeerKind } from '@tg/core/cache'
 import { LANGS, type Lang, makeT, normalizeLang } from '@tg/core/i18n'
 import { DEFAULT_PATTERNS } from '@tg/core/patterns'
 import { useEffect, useRef, useState } from 'react'
@@ -10,6 +11,31 @@ function initialLangPref(): '' | Lang {
 }
 function resolveLang(pref: '' | Lang): Lang {
   return pref || normalizeLang(navigator.language) || 'en'
+}
+
+/** The buckets, in the order the filter lists them, with their i18n labels. */
+const SCOPES: {
+  kind: PeerKind
+  label: 'scopeSaved' | 'scopePrivate' | 'scopeBots' | 'scopeGroups' | 'scopeChannels'
+}[] = [
+  { kind: 'saved', label: 'scopeSaved' },
+  { kind: 'private', label: 'scopePrivate' },
+  { kind: 'bot', label: 'scopeBots' },
+  { kind: 'group', label: 'scopeGroups' },
+  { kind: 'channel', label: 'scopeChannels' },
+]
+
+// Everything but channels, matching what the sync downloads: feeds hold nothing of
+// yours, and on an old cache they are the bulk of what a regex hits. Bots stay on —
+// that is where login codes are, which is half of what anyone searches for.
+const DEFAULT_KINDS: PeerKind[] = ['saved', 'private', 'bot', 'group']
+
+function initialKinds(): PeerKind[] {
+  const saved = localStorage.getItem('searchKinds')
+  if (saved === null) return DEFAULT_KINDS
+  const picked = saved.split(',').filter((k): k is PeerKind => SCOPES.some((s) => s.kind === k))
+  // an empty stored value would search nothing at all — treat it as never set
+  return picked.length ? picked : DEFAULT_KINDS
 }
 
 export interface Row {
@@ -44,7 +70,8 @@ const keyOf = (r: Row) => `${r.chat_id}:${r.id}`
  * `core-client.ts` implements it against @tg/core in the browser, with no server at all.
  */
 export interface DataLayer {
-  search(query: string): Promise<{ rows: Row[] } | { error: string }>
+  /** `kinds` is the peer types to search; chats the cache has no label for always count. */
+  search(query: string, kinds: PeerKind[]): Promise<{ rows: Row[] } | { error: string }>
   del(targets: { chat_id: number; id: number }[]): Promise<{
     deleted: number
     errors?: { error: string }[]
@@ -71,6 +98,8 @@ export function App({ data }: { data: DataLayer }) {
   const [notice, setNotice] = useState('')
   const [langPref, setLangPref] = useState<'' | Lang>(initialLangPref)
   const [templatesOpen, setTemplatesOpen] = useState(false)
+  const [scopeOpen, setScopeOpen] = useState(false)
+  const [kinds, setKinds] = useState<PeerKind[]>(initialKinds)
   const lastCached = useRef(0)
   const t = makeT(resolveLang(langPref))
 
@@ -78,6 +107,15 @@ export function App({ data }: { data: DataLayer }) {
   function pickPattern(pattern: string) {
     setQ(pattern)
     setTemplatesOpen(false)
+  }
+
+  // Never lets the last kind go: an empty selection searches nothing, which reads as a
+  // broken search rather than as a choice.
+  function toggleKind(kind: PeerKind) {
+    const next = kinds.includes(kind) ? kinds.filter((k) => k !== kind) : [...kinds, kind]
+    if (!next.length) return
+    localStorage.setItem('searchKinds', next.join(','))
+    setKinds(next)
   }
 
   function changeLang(pref: '' | Lang) {
@@ -91,7 +129,7 @@ export function App({ data }: { data: DataLayer }) {
       setSearchError('')
       return
     }
-    const res = await data.search(query)
+    const res = await data.search(query, kinds)
     if ('error' in res) {
       setSearchError(res.error || t('invalidRegex'))
       return
@@ -109,12 +147,12 @@ export function App({ data }: { data: DataLayer }) {
   runSearchRef.current = runSearch
   const researchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-  // debounce поиска по мере ввода
-  // biome-ignore lint/correctness/useExhaustiveDependencies: re-run only when the query changes
+  // debounce поиска по мере ввода; смена области поиска — тот же повторный запрос
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-run on the query and the scope, nothing else
   useEffect(() => {
     const timer = setTimeout(() => runSearch(q), 400)
     return () => clearTimeout(timer)
-  }, [q])
+  }, [q, kinds])
 
   // Статус приходит push-ом от слоя данных: сервер шлёт снимок по WebSocket, браузерный
   // клиент — из своего прогресса синхронизации. Опроса нет ни там, ни там.
@@ -223,6 +261,27 @@ export function App({ data }: { data: DataLayer }) {
                   ))}
                 </>
               ) : null}
+            </div>
+          </details>
+          {/* same native <details> popover as the templates sheet */}
+          <details
+            className="templates"
+            open={scopeOpen}
+            onToggle={(e) => setScopeOpen(e.currentTarget.open)}
+          >
+            <summary>{t('scopeBtn')}</summary>
+            <div className="sheet">
+              {SCOPES.map(({ kind, label }) => (
+                <label key={kind}>
+                  <input
+                    type="checkbox"
+                    checked={kinds.includes(kind)}
+                    onChange={() => toggleKind(kind)}
+                  />
+                  {t(label)}
+                </label>
+              ))}
+              <span className="sep">{t('scopeHint')}</span>
             </div>
           </details>
           <select
