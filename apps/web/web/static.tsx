@@ -10,10 +10,10 @@
 // The passphrase is asked for *before* the Telegram login, not after: the vault has to
 // exist before the first byte of cache or session is written, and asking once up front
 // is simpler than retrofitting a key onto data already in flight.
-import { makeT, normalizeLang } from '@tg/core/i18n'
+import { makeT } from '@tg/core/i18n'
 import { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { App } from './app'
+import { App, initialLangPref, resolveLang } from './app'
 import { bakedCreds } from './baked'
 import { type BrowserClient, createBrowserClient } from './core-client'
 import { createVault, unlockVault } from './crypto'
@@ -27,7 +27,10 @@ import {
 } from './store'
 
 const MIN_PASSPHRASE = 8
-const t = makeT(normalizeLang(navigator.language) ?? 'en')
+// Honours the same stored preference the in-app language picker writes, so the gate's
+// own buttons aren't stuck in the browser's language while the app below is in another.
+// Read once at import, like before: changing the picker applies to the gate on reload.
+const t = makeT(resolveLang(initialLangPref()))
 
 type Phase = 'boot' | 'creds' | 'unlock' | 'seal' | 'login' | 'ready'
 

@@ -5,11 +5,11 @@ import { useEffect, useRef, useState } from 'react'
 import './app.css'
 
 // '' = follow the browser; otherwise a forced locale, persisted in localStorage
-function initialLangPref(): '' | Lang {
+export function initialLangPref(): '' | Lang {
   const saved = localStorage.getItem('lang')
   return saved === '' || saved === 'en' || saved === 'ru' ? saved : ''
 }
-function resolveLang(pref: '' | Lang): Lang {
+export function resolveLang(pref: '' | Lang): Lang {
   return pref || normalizeLang(navigator.language) || 'en'
 }
 

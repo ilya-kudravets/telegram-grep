@@ -94,9 +94,9 @@ export const en = {
   unlockBtn: 'Unlock',
   wrongPassphrase: 'wrong passphrase',
   logoutBtn: 'Log out',
-  eraseBtn: 'Erase all data',
+  eraseBtn: 'Erase local data',
   confirmErase:
-    'Erase the cached messages, the stored session and the saved credentials from this browser?',
+    'Erase the cached messages, the stored session and the saved credentials from this browser?\n\nThis is local only: nothing is deleted from Telegram, and your messages stay where they are. To delete messages from Telegram, search for them and use Delete.',
   ownCredsLink: 'use my own api_id',
   sealTitle: 'Choose a passphrase',
   sealHint:
