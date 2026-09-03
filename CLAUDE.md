@@ -129,7 +129,8 @@ and paste what they choose to share.
 
 Releases are driven by **release-please** — do **not** hand-tag or create GitHub releases:
 
-- Commit with **Conventional Commits**. Only `feat:` / `fix:` bump the version; `ci:` / `chore:` /
+- Commit with **Conventional Commits**. `feat:` bumps minor; `fix:` and `perf:` bump patch
+  (verified: `perf(sync)` alone produced the 0.8.2 release PR); `ci:` / `chore:` /
   `build(deps):` / `docs:` land without a release. `feat!:` or a `BREAKING CHANGE:` footer bumps major.
 - On push to `main`, release-please maintains a version-bump PR (updates `package.json` + `CHANGELOG.md`).
   Merging **that** PR tags `vX.Y.Z`, cuts the release, and the `build` job compiles the per-platform
