@@ -1,7 +1,9 @@
 // Platform adapter: implements the `Cache` port on top of bun:sqlite.
 // A second driver would add a sibling adapter reusing the same SQL from
 // ../core/cache — the domain never changes.
+
 import { Database } from 'bun:sqlite'
+import { chmodSync } from 'node:fs'
 import { toggleChannelIdMark } from '@mtcute/core/utils.js'
 import {
   type Cache,
@@ -16,6 +18,10 @@ import {
 
 export function openCache(path: string): Cache {
   const db = new Database(path, { create: true })
+  // The file is every message ever synced — the passwords and seed phrases this tool
+  // exists to find — and nothing on the Bun side encrypts it. Owner-only, here rather
+  // than at each call site so a fourth caller cannot forget. ':memory:' has no file.
+  if (path !== ':memory:') chmodSync(path, 0o600)
   db.exec(SCHEMA_SQL)
 
   for (const col of MIGRATION_COLUMNS) {
@@ -34,7 +40,24 @@ export function openCache(path: string): Cache {
   const markBackfilledStmt = db.prepare(SQL.markBackfilled)
   const resetSyncStateStmt = db.prepare(SQL.resetSyncState)
   const insertMsgStmt = db.prepare(SQL.insertMessage)
+  const messageIdsStmt = db.prepare(SQL.messageIds)
+  const deleteBeforeStmt = db.prepare(SQL.deleteHistoryBefore)
   const countStmt = db.prepare(SQL.count)
+
+  // SQLite refuses a statement with more than SQLITE_MAX_VARIABLE_NUMBER bound
+  // parameters — 65535 in Bun's build, 32766 in a default one, so chunk below the
+  // smaller — and an id list is not bounded by anything we control: Telegram sends
+  // arbitrarily large delete updates, and a resync's prune diff can be the size of a
+  // whole chat. One statement per chunk, all in one transaction so a partial delete
+  // can't be observed.
+  const CHUNK = 20_000
+  const deleteIn = db.transaction((sql: string, scope: number, ids: number[]) => {
+    // Stryker disable next-line EqualityOperator: <= only ever adds one trailing empty chunk, and an empty chunk is `id in ()`, which deletes nothing
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const chunk = ids.slice(i, i + CHUNK)
+      db.run(`${sql} (${chunk.map(() => '?').join(',')})`, [scope, ...chunk])
+    }
+  })
 
   // NB: inserting does NOT advance last_msg_id — history downloads newest-first,
   // so bumping mid-chat would make a crashed sync skip the older tail on restart.
@@ -76,30 +99,26 @@ export function openCache(path: string): Cache {
       // Stryker disable next-line ConditionalExpression: insertMany([]) is a no-op empty transaction; the guard only avoids that empty transaction, no observable difference
       if (msgs.length) insertMany(msgs)
     },
+    messageIds(chatId: number): number[] {
+      return (messageIdsStmt.all(chatId) as { id: number }[]).map((r) => r.id)
+    },
     deleteMessages(chatId: number, ids: number[]) {
-      // Stryker disable next-line ConditionalExpression: guard is a pure optimization — with empty ids the query becomes a harmless `id in ()` that deletes nothing
-      if (!ids.length) return
-      db.run(`delete from messages where chat_id = ? and id in (${ids.map(() => '?').join(',')})`, [
-        chatId,
-        ...ids,
-      ])
+      deleteIn(`delete from messages where chat_id = ? and id in`, chatId, ids)
+    },
+    deleteHistoryBefore(chatId: number, maxId: number) {
+      deleteBeforeStmt.run(chatId, maxId)
     },
     // DeleteMessageUpdate gives channelId for channels, null otherwise.
     // Non-channel message ids are unique account-wide, channel ids are per-channel.
     deleteByUpdate(ids: number[], channelId: number | null) {
-      // Stryker disable next-line ConditionalExpression: guard is a pure optimization — with empty ids the query becomes a harmless `id in ()` that deletes nothing
-      if (!ids.length) return
-      const ph = ids.map(() => '?').join(',')
       if (channelId !== null) {
-        db.run(`delete from messages where chat_id = ? and id in (${ph})`, [
+        deleteIn(
+          `delete from messages where chat_id = ? and id in`,
           toggleChannelIdMark(channelId),
-          ...ids,
-        ])
+          ids,
+        )
       } else {
-        db.run(`delete from messages where chat_id > ? and id in (${ph})`, [
-          MIN_CHANNEL_MARKED,
-          ...ids,
-        ])
+        deleteIn(`delete from messages where chat_id > ? and id in`, MIN_CHANNEL_MARKED, ids)
       }
     },
     iterAll(): IterableIterator<SearchRow> {

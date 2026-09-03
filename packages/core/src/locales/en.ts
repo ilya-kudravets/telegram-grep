@@ -68,7 +68,7 @@ export const en = {
   scopeHint: 'chats not yet labelled are always searched',
   resyncBtn: 'Full resync',
   resyncHint:
-    'Forget what has already been synced and walk all history again. Nothing cached is lost.',
+    'Forget what has already been synced and walk all history again. This is also what drops cached messages Telegram no longer has, such as history you cleared there.',
   resyncStarted: 'resync started',
   tplPasswords: 'passwords & PINs',
   tplCodes: 'codes / OTP',

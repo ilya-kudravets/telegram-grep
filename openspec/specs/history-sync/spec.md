@@ -91,11 +91,29 @@ Sync MUST record what kind of peer each dialog is, and MUST do so for every dial
 
 ### Requirement: Forcing a full resync
 
-The user MUST be able to discard the per-chat sync bookkeeping so that all history is walked again. Doing so MUST NOT remove cached messages: re-storing them revises rather than duplicates, so a resync repairs and refreshes the archive and an interrupted one leaves the user everything they already had. A resync MUST NOT be startable while one is already running.
+The user MUST be able to discard the per-chat sync bookkeeping so that all history is walked again. A resync MUST NOT be startable while one is already running.
+
+Discarding the bookkeeping MUST NOT itself remove cached messages, so an interrupted resync leaves the user everything they already had. The walk it triggers is what reconciles: a walk that runs from a chat's newest message to the bottom MUST drop the cached messages it never saw, because that is the only point at which the cache can learn what Telegram no longer holds.
 
 #### Scenario: History the first pass never delivered
 - **WHEN** a chat was marked complete but is missing messages, and the user forces a resync
 - **THEN** its history is walked again from the newest message, and the missing messages land
+
+#### Scenario: History cleared on Telegram's side
+- **WHEN** the user cleared a chat's history in Telegram and then forces a resync
+- **THEN** the messages Telegram no longer returns are gone from the cache too, and stop appearing in search results
+
+#### Scenario: A resync that does not finish
+- **WHEN** a re-walk fails or is interrupted part-way down a chat
+- **THEN** nothing is removed, since a partial pass cannot distinguish a cleared message from one it has not reached yet, and the next resync tries again
+
+#### Scenario: An ordinary sync
+- **WHEN** a chat's history is already complete and only newer messages are fetched
+- **THEN** nothing is removed, because such a run never sees the whole chat
+
+#### Scenario: A message arriving during a re-walk
+- **WHEN** a new message is stored while a chat is being re-walked
+- **THEN** it survives the reconciliation, which considers only what was cached before the walk began
 
 #### Scenario: The cache during a resync
 - **WHEN** a resync is running
@@ -115,7 +133,7 @@ Sync MUST publish a progress snapshot — current chat, chats done and total, me
 
 ### Requirement: Live updates keep the cache current
 
-While connected, new, edited and deleted messages MUST be applied to the cache as they arrive, and each MUST signal that the cache changed so an active search can re-run.
+While connected, new, edited and deleted messages MUST be applied to the cache as they arrive, and each MUST signal that the cache changed so an active search can re-run. A cleared channel or supergroup history MUST be applied the same way, which requires reading the raw update, as no typed handler exposes it.
 
 #### Scenario: A message arrives while searching
 - **WHEN** a new message matching the active pattern arrives
@@ -124,3 +142,11 @@ While connected, new, edited and deleted messages MUST be applied to the cache a
 #### Scenario: A message is deleted elsewhere
 - **WHEN** a deletion update arrives
 - **THEN** those messages are removed from the cache and stop appearing in results
+
+#### Scenario: A channel or supergroup history is cleared
+- **WHEN** an update reports that a channel's history was hidden up to some message
+- **THEN** every cached message of that channel up to and including it is removed
+
+#### Scenario: A private chat's history is cleared
+- **WHEN** the user clears a private chat or basic group in Telegram
+- **THEN** the cache is reconciled by the next full resync, since the protocol carries no live update for it

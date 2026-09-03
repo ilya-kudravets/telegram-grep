@@ -155,6 +155,36 @@ export function testCache(label: string, open: () => Cache) {
       expect([...c.iterAll()].every((r) => r.chat_kind === 'private')).toBe(true)
     })
 
+    test('messageIds lists one chat and nothing of its neighbours', () => {
+      const c = open()
+      c.insertMessages([msg({ id: 1 }), msg({ id: 2 }), msg({ chat_id: 2, id: 9 })])
+      expect(c.messageIds(1).sort((a, b) => a - b)).toEqual([1, 2])
+      expect(c.messageIds(2)).toEqual([9])
+      expect(c.messageIds(999)).toEqual([]) // a chat with nothing cached, not an error
+    })
+
+    test('messageIds reflects deletions, since the resync prune diffs against it', () => {
+      const c = open()
+      c.insertMessages([msg({ id: 1 }), msg({ id: 2 })])
+      c.deleteMessages(1, [1])
+      expect(c.messageIds(1)).toEqual([2])
+    })
+
+    // "clear history" upstream: everything up to and including maxId is gone
+    test('deleteHistoryBefore drops the prefix inclusively and spares the rest', () => {
+      const c = open()
+      c.insertMessages([msg({ id: 1 }), msg({ id: 5 }), msg({ id: 6 }), msg({ chat_id: 2, id: 5 })])
+      c.deleteHistoryBefore(1, 5)
+      expect([...c.iterAll()].map((r) => `${r.chat_id}:${r.id}`).sort()).toEqual(['1:6', '2:5'])
+    })
+
+    test('deleteHistoryBefore on a chat with nothing cached is a no-op', () => {
+      const c = open()
+      c.insertMessages([msg({ id: 1 })])
+      expect(() => c.deleteHistoryBefore(404, 100)).not.toThrow()
+      expect(c.count()).toBe(1)
+    })
+
     test('deleteMessages removes only given ids in chat', () => {
       const c = open()
       c.insertMessages([msg({ id: 1 }), msg({ id: 2 }), msg({ chat_id: 2, id: 1 })])
@@ -206,6 +236,21 @@ export function testCache(label: string, open: () => Cache) {
       ])
       c.deleteByUpdate([5, 6], 123)
       expect([...c.iterAll()].map((r) => r.id)).toEqual([7])
+    })
+
+    // SQLite caps a statement's bound parameters (32766 in a default build, 65535 in
+    // Bun's), and neither id list is bounded by anything we control: Telegram sends
+    // arbitrarily large delete updates, and a resync's prune diff can be a whole chat.
+    // Adapters must chunk, not throw — so this count is deliberately over Bun's ceiling.
+    test('an id list larger than any statement can bind still deletes all of it', () => {
+      const c = open()
+      const ids = Array.from({ length: 70_000 }, (_, i) => i + 1)
+      c.insertMessages(ids.map((id) => msg({ id })))
+      c.deleteMessages(1, ids.slice(0, 69_999))
+      expect(c.count()).toBe(1)
+      c.insertMessages(ids.map((id) => msg({ id })))
+      c.deleteByUpdate(ids, null)
+      expect(c.count()).toBe(0)
     })
 
     test('deleteByUpdate with empty ids is a no-op', () => {
