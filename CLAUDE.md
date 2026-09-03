@@ -30,13 +30,15 @@ cwd stays the root, so `.env` and `data/` live there.
   seen in a dialog list and is never filtered out, and `searchCache` applies the filter **before**
   its limit so excluded rows can't eat the budget. `patterns.ts` holds the UI's ready-made search templates — labels are i18n keys,
   not text, so the list stays UI rather than data.
-  `pacer.ts` is an mtcute **network middleware**, not domain code: it spaces out the bulk
-  read calls and learns the account's unpublished rate limit (AIMD on the gap, plus a
-  ratchet that never probes back below a gap that already flooded). Install it **after**
-  `networkMiddlewares.basic(...)` so it sits *inside* the flood waiter — from outside, a
-  flood is invisible, just a slow call. It is also what makes `syncAll`'s `CHAT_WORKERS`
-  chats-in-flight safe: the pacer, not the round-trip time, sets the request rate, so
-  concurrency fills latency instead of adding load.
+  `pacer.ts` is an mtcute **network middleware**, not domain code, and it is **purely
+  reactive: zero delay until Telegram actually answers with a flood wait**, then a gap
+  that doubles per flood and decays multiplicatively back to zero. Do not make it
+  pre-emptive — that was the first design and it measured 1.5-2x *slower* than no pacing,
+  eating the whole gain from `syncAll`'s `CHAT_WORKERS` chats-in-flight; getHistory floods
+  are short, so paying one occasionally beats throttling everything to dodge it. Its four
+  constants were tuned by simulation against token-bucket servers from 1 to 8 req/s.
+  Install it **after** `networkMiddlewares.basic(...)` so it sits *inside* the flood waiter
+  — from outside, a flood is invisible, just a slow call.
   Two `Cache` adapters implement its port: `bun:sqlite` (`packages/bun`) and the in-memory one
   (`cache-memory.ts`) the browser client persists snapshots of. Both must satisfy
   `tests/cache-conformance.ts` — add contract facts there, not to one adapter's own tests.

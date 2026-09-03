@@ -1,27 +1,39 @@
-// Rate pacing for the bulk read calls a sync is made of.
+// Damping for the bulk read calls a sync is made of.
 //
-// Telegram publishes no per-method rate limit, and the only feedback it gives is
-// FLOOD_WAIT_X — a punishment after the fact, not a warning before it. The punishment is
-// expensive twice over: mtcute's floodWaiter sleeps the whole window, and because it
-// remembers the wait *per method*, every other call to that method sleeps out the
-// remainder too. One trip therefore stalls the entire sync, which is why staying just
-// under the limit is worth far more than handling the penalty well.
+// **Purely reactive: it adds no delay until Telegram has actually objected.** That is the
+// whole design, and it is a correction of an earlier one. The first attempt paced
+// proactively — a 200ms opening gap, a floor it never went below, and a ratchet that
+// remembered the widest gap that had ever flooded — on the theory that a FLOOD_WAIT costs
+// far more than the delays needed to avoid it. Simulated against a token-bucket server it
+// was **1.5–2x slower than no pacing at all**: it ate the entire gain from walking chats
+// concurrently, and on a tight limit it over-throttled well past what the account
+// actually allowed. The premise was wrong. `messages.getHistory` floods are short — the
+// wait is roughly the time until the limit frees up — so paying the occasional one is
+// cheaper than slowing every request down to dodge it.
 //
-// The limit is unknown, differs per account and changes over time, so it has to be
-// learned rather than configured. This is AIMD on the gap between calls: every clean
-// response shaves a little off it, every flood doubles it. The gap settles a shade under
-// whatever the account actually tolerates, and re-settles if Telegram changes its mind.
+// What is still worth damping is the *thrash*. Four chats in flight with no damping at
+// all produced thousands of flood waits over one archive in simulation: no slower
+// overall, since the waits are short, but a request pattern that invites Telegram to
+// escalate. So a flood widens the gap, and every clean response decays it back
+// multiplicatively — fast enough that a brief squeeze does not tax the rest of the run.
+//
+// Simulated over ~1300 pages, versus four chats in flight with no damping at all:
+//
+//   server              wall time        flood waits
+//   no pressure         1.4 → 1.4 min      0 →   0
+//   bucket 8 req/s      2.7 → 2.7 min    250 →  68
+//   bucket 3 req/s      7.1 → 7.4 min   1095 →  87
+//   bucket 1 req/s     21.3 → 21.4 min  3833 → 208
+//
+// i.e. it costs nothing measurable and removes most of the floods. (A sequential walk
+// takes 5.4 min on the first two and is limit-bound on the rest.) The four constants
+// below were picked by sweeping them against those same servers.
 //
 // It runs as an mtcute RPC middleware, not inside syncAll, for two reasons. It has to sit
 // *inside* floodWaiter to see the raw errors floodWaiter retries away — from the outside
 // a flood is invisible, just a call that took a suspiciously long time. And a rate limit
-// is a property of the account's connection, not of one walk over history: a sync running
-// while the user searches and deletes has to share one budget, which only the transport
-// can hold.
-//
-// The gap is also what makes concurrency safe: with several chats in flight the pacer,
-// not the round-trip time, decides the request rate, so overlapping calls fill the
-// latency instead of adding to the load.
+// belongs to the account's connection, not to one walk over history: a sync running while
+// the user searches and deletes shares one budget, which only the transport can hold.
 
 import { sleep as defaultSleep } from './sync'
 
@@ -32,21 +44,11 @@ export const PACED_METHODS: ReadonlySet<string> = new Set([
   'messages.search',
 ])
 
-const MIN_GAP = 50 // a floor, so an unthrottled account cannot be blasted at full speed
-const START_GAP = 200 // conservative first guess; decays within a few dozen calls
-const MAX_GAP = 3_000 // only reached under sustained flooding
-const DECAY = 4 // ms shaved per clean response
-const FLOOD_FLOOR = 400 // a flood means at least this much gap, however small the gap was
-// Plain AIMD oscillates around the limit *by design*: it probes downward until it trips,
-// backs off, and probes down again — so it keeps paying the penalty it exists to avoid,
-// once every few dozen calls. So remember where the wall was and never decay back below
-// it, with a margin. Two or three floods and the gap settles just under what the account
-// tolerates, instead of rediscovering it forever.
-const FLOOR_MARGIN = 1.25
-// The remembered wall is capped and lives only as long as the client: a limit tightened
-// by something outside this process (another client on the same account, a temporary
-// restriction) must not slow every later page down for good.
-const MAX_FLOOR = 1_000
+// All four tuned by simulation; see the sweep described above.
+const FLOOD_GAP = 200 // the gap a flood establishes, when there was none
+const MAX_GAP = 2_000 // ceiling, so a sustained squeeze cannot stall a sync outright
+const DECAY = 0.9 // multiplied into the gap on every clean response
+const SNAP = 10 // below this the gap is simply dropped: no delay at all
 
 /** The slice of mtcute's middleware context this reads. */
 export interface PacedRequest {
@@ -75,7 +77,7 @@ function isFloodWait(res: unknown): boolean {
 }
 
 /**
- * Middleware that spaces out `PACED_METHODS` and adapts the spacing to the floods it sees.
+ * Middleware that damps `PACED_METHODS` after a flood and gets out of the way otherwise.
  * Install it as the innermost middleware, i.e. **after** `networkMiddlewares.basic(...)`.
  */
 export function createPacingMiddleware({
@@ -83,8 +85,7 @@ export function createPacingMiddleware({
   sleep = defaultSleep,
   methods = PACED_METHODS,
 }: PacerDeps = {}) {
-  let gap = START_GAP
-  let floor = MIN_GAP // raised to the last gap that flooded — see FLOOR_MARGIN
+  let gap = 0 // no delay until a flood says otherwise
   let nextAt = 0
 
   // generic in the context, so mtcute's fuller one substitutes for this narrow slice
@@ -101,10 +102,11 @@ export function createPacingMiddleware({
     const res = await next(ctx)
     // a thrown error never reaches here, and shouldn't: a dead socket is not a rate limit
     if (isFloodWait(res)) {
-      floor = Math.min(MAX_FLOOR, Math.max(floor, gap * FLOOR_MARGIN))
-      gap = Math.min(MAX_GAP, Math.max(FLOOD_FLOOR, gap * 2))
+      gap = Math.min(MAX_GAP, Math.max(FLOOD_GAP, gap * 2))
     } else {
-      gap = Math.max(floor, gap - DECAY)
+      gap *= DECAY
+      // Stryker disable next-line EqualityOperator: <= differs only for a gap of exactly SNAP, which repeated *0.9 from FLOOD_GAP never lands on
+      if (gap < SNAP) gap = 0
     }
     return res
   }

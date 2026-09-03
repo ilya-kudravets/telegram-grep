@@ -49,29 +49,37 @@ A flood-wait response MUST be treated as a wait: reported to the interface, slep
 - **WHEN** the backoff is exercised in tests
 - **THEN** the sleep is injectable, so the test does not spend real seconds waiting
 
-### Requirement: The request rate is paced and learned, not guessed
+### Requirement: Flood waits are damped, never pre-empted
 
-A flood wait is a penalty paid after the fact, and an expensive one: the transport sleeps the whole window and remembers it per method, so one trip stalls every other call to that method. Staying under the limit is therefore worth more than handling the penalty well.
+Bulk read calls MUST NOT be delayed until Telegram has actually answered with a flood wait. Pre-emptive pacing was tried and measured against a rate-limited server: it was 1.5-2x slower than no pacing at all, consumed the whole gain from walking chats concurrently, and on a tight limit throttled well below what the account allowed. A `messages.getHistory` flood wait is short — roughly the time until the limit frees — so paying an occasional one is cheaper than slowing every request to avoid it.
 
-The limit is not published, differs per account and changes over time, so it MUST be learned at runtime rather than configured: the gap between the bulk read calls MUST shrink while responses stay clean and widen when one floods. A gap that has flooded MUST NOT be probed below again, so the system settles under the limit instead of rediscovering it — subject to a ceiling, so a limit tightened by something outside this process does not slow every later request for good.
+What MUST be damped is the repetition. Once a flood has occurred, the gap between those calls MUST widen, and every clean response MUST shrink it again until it reaches zero, so a brief squeeze leaves no residue on the rest of the run. The widening MUST be bounded, so a sustained squeeze cannot stall a sync outright.
 
-Pacing MUST apply to the whole connection rather than to one walk, since a sync, a search and a delete share the account's budget, and MUST sit where the raw flood responses are visible — outside the retrying layer a flood looks only like a slow call.
+Damping MUST apply to the connection rather than to one walk, since a sync, a search and a delete share the account's budget, and MUST sit where the raw flood responses are visible — outside the retrying layer a flood looks only like a slow call.
 
-#### Scenario: A long dump on an untested account
-- **WHEN** history is downloaded continuously
-- **THEN** the gap narrows while Telegram is content and widens as soon as it is not, without the user configuring anything
+#### Scenario: An account with room to spare
+- **WHEN** history is downloaded and Telegram never objects
+- **THEN** no delay whatsoever is added, and the download runs as fast as the connection allows
 
-#### Scenario: The same wall twice
-- **WHEN** a gap has already produced a flood wait
-- **THEN** later pacing stays above it rather than returning to it, so the penalty is paid a couple of times and not repeatedly
+#### Scenario: The first flood wait
+- **WHEN** a bulk read call answers with a flood wait
+- **THEN** the calls after it are spaced out, and further floods widen that spacing up to a ceiling
+
+#### Scenario: The squeeze passes
+- **WHEN** responses come back clean again for a while
+- **THEN** the spacing shrinks back to nothing rather than persisting for the rest of the run
 
 #### Scenario: Calls that are not part of a bulk walk
 - **WHEN** a deletion or an authentication call is made
-- **THEN** it is not paced, because it is not what exhausts the budget
+- **THEN** it is never damped, because it is not what exhausts the budget
+
+#### Scenario: A failure that is not a rate limit
+- **WHEN** a call fails for any other reason, or the socket dies
+- **THEN** nothing starts damping, since neither says anything about the account's budget
 
 ### Requirement: Chats are walked concurrently
 
-A history page is a round trip, so walking chats strictly one at a time leaves the connection idle for most of a sync. Several chats MUST be in flight at once, bounded to a small number. This MUST NOT raise the request rate — the pacing above is what governs that, so overlapping calls fill the waiting rather than adding load.
+A history page is a round trip, so walking chats strictly one at a time leaves the connection idle for most of a sync. Several chats MUST be in flight at once, bounded to a small number: measured against a server with room to spare this is the whole speed-up, close to linear in the number of workers, and against a rate-limited one it costs nothing, because the limit rather than the client is what governs the total.
 
 Each chat's own pages MUST stay sequential, because the backfill frontier is what makes an interrupted walk resumable. Every chat MUST be walked exactly once, and a failure in one MUST NOT abort the others.
 

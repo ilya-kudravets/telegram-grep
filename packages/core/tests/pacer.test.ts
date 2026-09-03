@@ -19,7 +19,7 @@ function harness(methods?: ReadonlySet<string>) {
       clock += cost
       return res
     })
-  const flood = (seconds: number) => ({
+  const flood = (seconds = 5) => ({
     _: 'mt_rpc_error',
     errorCode: 420,
     errorMessage: `FLOOD_WAIT_${seconds}`,
@@ -30,37 +30,25 @@ function harness(methods?: ReadonlySet<string>) {
 const HISTORY = 'messages.getHistory'
 
 describe('pacing middleware', () => {
-  test('the first call is not delayed — an idle client should start immediately', async () => {
+  // The load-bearing property, and the correction of an earlier design that paced from
+  // the very first request: a client Telegram is happy with must not be slowed at all.
+  test('adds no delay whatsoever until Telegram has actually objected', async () => {
     const h = harness()
-    await h.call(HISTORY)
+    for (let i = 0; i < 200; i++) await h.call(HISTORY)
     expect(h.waits).toEqual([])
+    expect(h.now()).toBe(1_000) // not one millisecond spent waiting
   })
 
-  test('back-to-back calls are spaced out', async () => {
+  test('methods outside the paced set are never damped, flood or no flood', async () => {
     const h = harness()
-    await h.call(HISTORY)
-    await h.call(HISTORY)
-    expect(h.waits).toHaveLength(1)
-    expect(h.waits[0]!).toBeGreaterThan(0)
-  })
-
-  test('a call that took longer than the gap is not delayed further', async () => {
-    const h = harness()
-    await h.call(HISTORY)
-    // the round trip already covered the gap; sleeping again would be pure waste
-    await h.call(HISTORY, { ok: true }, 10_000)
-    await h.call(HISTORY)
-    expect(h.waits).toHaveLength(1) // only the second call waited
-  })
-
-  test('methods outside the paced set are passed straight through', async () => {
-    const h = harness()
-    for (let i = 0; i < 5; i++) await h.call('messages.deleteMessages')
+    const other = 'messages.deleteMessages'
+    await h.call(other, h.flood())
+    for (let i = 0; i < 5; i++) await h.call(other)
     expect(h.waits).toEqual([])
   })
 
   test('the paced set is exactly the bulk read calls, by name', () => {
-    // pinned as literals: these are wire names, and a typo silently paces nothing
+    // pinned as literals: these are wire names, and a typo silently damps nothing
     expect([...PACED_METHODS].sort()).toEqual([
       'messages.getDialogs',
       'messages.getHistory',
@@ -68,133 +56,113 @@ describe('pacing middleware', () => {
     ])
   })
 
-  test('every paced method is actually paced', async () => {
+  test('a flood starts spacing the calls that follow it', async () => {
+    const h = harness()
+    await h.call(HISTORY)
+    expect(h.waits).toEqual([]) // still nothing before the flood
+    await h.call(HISTORY, h.flood())
+    await h.call(HISTORY)
+    await h.call(HISTORY)
+    expect(h.waits.at(-1)!).toBeGreaterThan(0)
+  })
+
+  test('every paced method reacts to its own flood', async () => {
     for (const method of PACED_METHODS) {
       const h = harness()
+      await h.call(method, h.flood())
       await h.call(method)
       await h.call(method)
-      expect(h.waits).toHaveLength(1)
+      expect(h.waits.at(-1)!).toBeGreaterThan(0)
     }
   })
 
-  test('the gap decays while responses stay clean, so a quiet account speeds up', async () => {
-    const h = harness()
-    for (let i = 0; i < 4; i++) await h.call(HISTORY)
-    const [first, , third] = h.waits
-    expect(h.waits).toHaveLength(3)
-    expect(third!).toBeLessThan(first!)
-  })
-
-  test('the gap stops decaying at a floor rather than reaching zero', async () => {
-    const h = harness()
-    for (let i = 0; i < 500; i++) await h.call(HISTORY)
-    const last = h.waits.at(-1)!
-    expect(last).toBeGreaterThan(0)
-    // and it has settled: two more calls wait the same amount
-    await h.call(HISTORY)
-    expect(h.waits.at(-1)!).toBe(last)
-  })
-
-  test('a flood widens the gap instead of being merely waited out', async () => {
-    const h = harness()
-    await h.call(HISTORY)
-    await h.call(HISTORY)
-    const before = h.waits.at(-1)!
-    await h.call(HISTORY, h.flood(30))
-    // the widened gap governs the slot *after* the one already reserved, so look one
-    // call further on than the flood itself
-    await h.call(HISTORY)
-    await h.call(HISTORY)
-    expect(h.waits.at(-1)!).toBeGreaterThan(before)
-  })
-
-  test('repeated floods keep widening the gap, up to a cap', async () => {
+  test('repeated floods widen the gap, up to a cap', async () => {
     const h = harness()
     const gaps: number[] = []
     for (let i = 0; i < 12; i++) {
-      await h.call(HISTORY, h.flood(5))
-      await h.call(HISTORY, h.flood(5))
-      gaps.push(h.waits.at(-1)!)
+      await h.call(HISTORY, h.flood())
+      await h.call(HISTORY, h.flood())
+      // ?? 0: the opening iterations reserve their slots while the gap is still zero,
+      // so nothing sleeps yet
+      gaps.push(h.waits.at(-1) ?? 0)
     }
-    expect(gaps[1]!).toBeGreaterThan(gaps[0]!)
-    // each flood must actually multiply the gap, not nudge it: a back-off that cannot
-    // climb past its own opening value is no back-off at all
-    expect(gaps.at(-1)!).toBeGreaterThan(2_000)
-    // but bounded — a stuck account must not end up waiting minutes between pages
-    expect(gaps.at(-1)!).toBe(3_000)
+    // each flood multiplies: a back-off that cannot climb past its opening value is none
+    expect(gaps.at(-1)!).toBeGreaterThan(gaps[0]!)
+    expect(gaps.at(-1)!).toBeGreaterThan(1_000)
+    // but bounded — a squeezed account must not end up waiting minutes between pages
+    expect(gaps.at(-1)!).toBe(2_000)
   })
 
-  test('a wait named somewhere other than the start is not a rate limit', async () => {
+  test('the spacing decays away entirely once the floods stop', async () => {
     const h = harness()
-    await h.call(HISTORY)
-    await h.call(HISTORY)
-    const before = h.waits.at(-1)!
-    // the field carries the bare error code, so this is text that merely mentions one
-    await h.call(HISTORY, { errorMessage: 'peer said FLOOD_WAIT_99' })
-    // two calls on: the first still runs on the slot reserved under the old gap, so a
-    // gap that was wrongly widened only becomes visible after that
-    await h.call(HISTORY)
-    await h.call(HISTORY)
-    expect(h.waits.at(-1)!).toBeLessThan(before)
+    await h.call(HISTORY, h.flood())
+    for (let i = 0; i < 60; i++) await h.call(HISTORY)
+    const before = h.waits.length
+    // fully back to zero: no residue left to tax the rest of the run
+    for (let i = 0; i < 20; i++) await h.call(HISTORY)
+    expect(h.waits).toHaveLength(before)
   })
 
-  test('after a flood the gap never decays back below where it tripped', async () => {
+  test('the decay shrinks the gap gradually rather than dropping it in one step', async () => {
     const h = harness()
-    // settle down to the floor, so the gap that trips is a known one
-    for (let i = 0; i < 40; i++) await h.call(HISTORY)
-    const tripped = h.waits.at(-1)!
-    await h.call(HISTORY, h.flood(5))
-    // plenty of clean calls: plain AIMD would probe all the way back down and trip again
-    for (let i = 0; i < 400; i++) await h.call(HISTORY)
-    expect(h.waits.at(-1)!).toBeGreaterThan(tripped)
+    await h.call(HISTORY, h.flood())
+    await h.call(HISTORY)
+    await h.call(HISTORY)
+    const first = h.waits.at(-1)!
+    await h.call(HISTORY)
+    const second = h.waits.at(-1)!
+    expect(second).toBeLessThan(first)
+    expect(second).toBeGreaterThan(0)
   })
 
-  test('the remembered wall is capped, so one bad spell cannot slow every later page', async () => {
+  test('a call that took longer than the gap is not delayed further', async () => {
     const h = harness()
-    // flood relentlessly, driving the gap to its ceiling, then let it recover
-    for (let i = 0; i < 40; i++) await h.call(HISTORY, h.flood(5))
-    for (let i = 0; i < 2_000; i++) await h.call(HISTORY)
-    expect(h.waits.at(-1)!).toBeLessThanOrEqual(1_000)
+    await h.call(HISTORY, h.flood())
+    // the round trip already covered the gap; sleeping again would be pure waste
+    await h.call(HISTORY, { ok: true }, 10_000)
+    const before = h.waits.length
+    await h.call(HISTORY)
+    expect(h.waits).toHaveLength(before)
   })
 
   test('FLOOD_PREMIUM_WAIT counts as a flood too', async () => {
     const h = harness()
-    await h.call(HISTORY)
-    await h.call(HISTORY)
-    const before = h.waits.at(-1)!
     await h.call(HISTORY, { _: 'mt_rpc_error', errorMessage: 'FLOOD_PREMIUM_WAIT_10' })
     await h.call(HISTORY)
     await h.call(HISTORY)
-    expect(h.waits.at(-1)!).toBeGreaterThan(before)
+    expect(h.waits.at(-1)!).toBeGreaterThan(0)
   })
 
   test('an unrelated rpc error is not mistaken for a flood', async () => {
     const h = harness()
-    await h.call(HISTORY)
-    await h.call(HISTORY)
-    const before = h.waits.at(-1)!
     await h.call(HISTORY, { _: 'mt_rpc_error', errorMessage: 'PEER_ID_INVALID' })
-    // two calls on: the first still runs on the slot reserved under the old gap, so a
-    // gap that was wrongly widened only becomes visible after that
-    await h.call(HISTORY)
-    await h.call(HISTORY)
-    expect(h.waits.at(-1)!).toBeLessThan(before) // decayed, like any clean response
+    for (let i = 0; i < 3; i++) await h.call(HISTORY)
+    expect(h.waits).toEqual([])
   })
 
   test('a non-numeric wait is ignored rather than parsed into nonsense', async () => {
     const h = harness()
-    await h.call(HISTORY)
-    await h.call(HISTORY)
-    const before = h.waits.at(-1)!
     await h.call(HISTORY, { errorMessage: 'FLOOD_WAIT_' })
-    // two calls on: the first still runs on the slot reserved under the old gap, so a
-    // gap that was wrongly widened only becomes visible after that
-    await h.call(HISTORY)
-    await h.call(HISTORY)
-    expect(h.waits.at(-1)!).toBeLessThan(before)
+    for (let i = 0; i < 3; i++) await h.call(HISTORY)
+    expect(h.waits).toEqual([])
   })
 
-  test('a thrown error propagates untouched, and pacing carries on after it', async () => {
+  test('a wait named somewhere other than the start is not a rate limit', async () => {
+    const h = harness()
+    // the field carries the bare error code, so this is text that merely mentions one
+    await h.call(HISTORY, { errorMessage: 'peer said FLOOD_WAIT_99' })
+    for (let i = 0; i < 3; i++) await h.call(HISTORY)
+    expect(h.waits).toEqual([])
+  })
+
+  test('a response that is not an object at all is handled, not thrown on', async () => {
+    const h = harness()
+    await h.call(HISTORY, null)
+    await h.call(HISTORY, undefined)
+    expect(h.waits).toEqual([])
+  })
+
+  test('a thrown error propagates untouched, and is not read as a rate limit', async () => {
     let clock = 0
     const waits: number[] = []
     const pace = createPacingMiddleware({
@@ -210,22 +178,23 @@ describe('pacing middleware', () => {
         throw new Error('socket closed')
       }),
     ).rejects.toThrow('socket closed')
-    // a dead socket is not a rate limit, so the gap is neither widened nor decayed — but
-    // the slot it reserved still stands, so the next call waits it out rather than
-    // stampeding straight after a failure
+    // a dead socket is not a flood, so nothing starts spacing because of it
     await pace(ctx, async () => ({ ok: true }))
-    expect(waits).toEqual([200])
+    expect(waits).toEqual([])
   })
 
-  test('concurrent callers queue behind each other instead of all starting at once', async () => {
+  test('once spacing exists, concurrent callers each claim a slot of their own', async () => {
     const h = harness()
-    // fired together, so each one sees the same clock before any of them sleeps
+    await h.call(HISTORY, h.flood())
+    h.waits.length = 0
+    // fired together, so each one sees the same clock before any of them sleeps. If the
+    // slot were claimed only after sleeping, the third would find the second's still free
+    // and start alongside it — a wait of zero here is the bug this pins.
     await Promise.all([h.call(HISTORY), h.call(HISTORY), h.call(HISTORY)])
-    // the first goes immediately; the other two each wait for a slot of their own. If the
-    // slot were claimed only after sleeping, the third would find the second's slot still
-    // free and start alongside it — so a wait of zero here is the bug this pins.
+    // the first finds the current slot free and goes at once; the other two each wait
     expect(h.waits).toHaveLength(2)
     expect(Math.min(...h.waits)).toBeGreaterThan(0)
-    expect(h.now()).toBeGreaterThanOrEqual(1_000 + 2 * Math.min(...h.waits))
+    // not asserting increasing waits: the fake clock advances during each sleep, so the
+    // later caller measures its own wait from a later `now` and the two come out equal
   })
 })
