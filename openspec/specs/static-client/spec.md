@@ -93,6 +93,8 @@ The client MUST be publishable as static files and MUST work when served from a 
 
 The client MUST offer a way to end the Telegram session remotely and a way to erase everything it stored locally. The local erase MUST work with no network and no passphrase.
 
+Because this client also deletes messages *from Telegram*, the local erase MUST name itself as local and MUST state that Telegram keeps everything. In a tool where both actions sit side by side, a name that leaves the distinction to be guessed is the more dangerous failure of the two.
+
 #### Scenario: Logging out
 - **WHEN** the user logs out
 - **THEN** the session is revoked on Telegram's side, and the local session, cache and credentials are removed only after that succeeds
@@ -102,5 +104,9 @@ The client MUST offer a way to end the Telegram session remotely and a way to er
 - **THEN** the stored data is left intact and the failure is reported, so the user can retry rather than end up logged in remotely with no local session
 
 #### Scenario: Erasing everything locally
-- **WHEN** the user chooses to erase all data
+- **WHEN** the user chooses to erase the local data
 - **THEN** the client confirms, then removes the cache, the session and the saved credentials from the browser, and returns to its first-launch state
+
+#### Scenario: Telling the two apart
+- **WHEN** the user reads the local-erase control and its confirmation
+- **THEN** both say the erase is local, that no message is removed from Telegram, and which control does remove messages from Telegram
