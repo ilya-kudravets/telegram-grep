@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.2](https://github.com/ilya-kudravets/telegram-grep/compare/v0.8.1...v0.8.2) (2026-09-03)
+
+
+### Performance Improvements
+
+* **sync:** pace requests and walk chats concurrently ([#49](https://github.com/ilya-kudravets/telegram-grep/issues/49)) ([9068715](https://github.com/ilya-kudravets/telegram-grep/commit/9068715eb8088f73f3b7fdd56c01f7920482677e))
+
 ## [0.8.1](https://github.com/ilya-kudravets/telegram-grep/compare/v0.8.0...v0.8.1) (2026-09-03)
 
 
