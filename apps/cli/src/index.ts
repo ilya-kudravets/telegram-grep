@@ -2,6 +2,7 @@ import {
   attachRealtime,
   compilePattern,
   createClient,
+  DEFAULT_PATTERNS,
   deleteEverywhere,
   ensureEnvFile,
   formatSyncLine,
@@ -11,6 +12,7 @@ import {
   openCache,
   searchCache,
   syncAll,
+  syncChannels,
   t,
   watchPatterns,
 } from '@tg/bun'
@@ -44,15 +46,17 @@ const tui = await runTui(t, {
     return re ? searchCache(cache, re) : []
   },
   del: (targets) => deleteEverywhere(tg, cache, targets),
-  patterns: () => loadPatterns('patterns.txt'),
+  // ^P cycles the built-in templates first, then whatever patterns.txt adds — the same
+  // list the web UI shows in its Templates sheet
+  patterns: () => [...DEFAULT_PATTERNS.map((tpl) => tpl.pattern), ...loadPatterns('patterns.txt')],
 })
 onFlood((s) => tui.setStatus(t('floodWaitStatus', s)))
 
 watchPatterns('patterns.txt', () => tui.setStatus(t('patternsReloaded')))
-attachRealtime(tg, cache, () => tui.refresh())
+attachRealtime(tg, cache, () => tui.refresh(), undefined, syncChannels())
 await tg.startUpdatesLoop()
 
-syncAll(tg, cache, (p) => tui.setStatus(formatSyncLine(p)))
+syncAll(tg, cache, (p) => tui.setStatus(formatSyncLine(p)), undefined, syncChannels())
   .then((p) =>
     tui.setStatus(
       t('syncDone', p.chatsDone, cache.count()) +

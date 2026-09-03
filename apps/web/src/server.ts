@@ -10,6 +10,7 @@ import {
   type SyncProgress,
   searchCache,
   syncAll,
+  syncChannels,
   t,
 } from '@tg/bun'
 import index from '../web/index.html'
@@ -44,14 +45,20 @@ onFlood((s) => {
   broadcast()
 })
 
-attachRealtime(tg, cache, broadcast)
+attachRealtime(tg, cache, broadcast, undefined, syncChannels())
 await tg.startUpdatesLoop()
 
-syncAll(tg, cache, (p) => {
-  status.sync = { ...p }
-  status.flood = 0
-  broadcast()
-})
+syncAll(
+  tg,
+  cache,
+  (p) => {
+    status.sync = { ...p }
+    status.flood = 0
+    broadcast()
+  },
+  undefined,
+  syncChannels(),
+)
   .then(() => {
     status.syncDone = true
     broadcast()

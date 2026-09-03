@@ -14,6 +14,15 @@ Telegram TUI client: local cache of all chats, regex search, delete messages acr
 
 ## Usage
 
+- **Broadcast channels are not synced.** A channel is a feed, not correspondence: nothing in it
+  is yours to delete unless you are its admin, and one channel's archive outweighs every real
+  chat you have. Groups, supergroups, gigagroups and private chats are synced as before. Set
+  `SYNC_CHANNELS=1` to include channels anyway (already-cached channel messages stay searchable
+  either way).
+- **Templates** — the search box has a `Templates` button with ready-made patterns for the things
+  people regret sending: passwords, one-time codes, API keys, card numbers, emails, phone numbers,
+  crypto addresses, document numbers, postal addresses. `patterns.txt` entries are listed under
+  them in the same sheet (server/TUI only — a browser has no file).
 - Type a regex in the search field — results update as you type. A plain string matches case-insensitively; `/pat/flags` is used as-is.
 - `tab` — switch focus between input and list, `space` — toggle selection, `d` — delete the selected (or current) messages with a `y/n` confirm, `esc` — reset, `^P` — cycle patterns from `patterns.txt` (the file is re-read on the fly), `^C` — quit.
 - Deletion uses `revoke`: for everyone, on all devices. Others' messages are deleted where you have rights; permission errors are shown in the status bar.
