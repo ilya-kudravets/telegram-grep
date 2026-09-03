@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/ilya-kudravets/telegram-grep/compare/v0.5.0...v0.6.0) (2026-09-03)
+
+
+### Features
+
+* **web:** add a force-resync button ([#38](https://github.com/ilya-kudravets/telegram-grep/issues/38)) ([4872292](https://github.com/ilya-kudravets/telegram-grep/commit/4872292a6fa622f497538afc7ad92b92e72ad4ac))
+
 ## [0.5.0](https://github.com/ilya-kudravets/telegram-grep/compare/v0.4.0...v0.5.0) (2026-09-03)
 
 
