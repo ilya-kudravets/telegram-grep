@@ -39,9 +39,12 @@ Telegram TUI client: local cache of all chats, regex search, delete messages acr
   The CLI and TUI read the same setting from `SEARCH_KINDS` (`SEARCH_KINDS=private,group`).
   Unset means everything, which is the right default for a tool an agent drives.
 - **Templates** — the search box has a `Templates` button with ready-made patterns for the things
-  people regret sending: passwords, one-time codes, API keys, card numbers, emails, phone numbers,
-  crypto addresses, document numbers, postal addresses. `patterns.txt` entries are listed under
-  them in the same sheet (server/TUI only — a browser has no file).
+  people regret sending: passwords and PINs, one-time codes, API keys, leaked keys recognised by
+  shape alone (GitHub, AWS, Stripe, OpenAI, Telegram bot tokens, JWTs, PEM blocks, `user:pass@`
+  URLs), seed phrases, card numbers, bank details, crypto addresses (BTC, EVM, TRON, TON, LTC),
+  ID documents, emails, phone numbers, postal addresses, coordinates and map links, invite links,
+  server IPs and ssh targets. `patterns.txt` entries are listed under them in the same sheet
+  (server/TUI only — a browser has no file).
 - **Full resync** — the web UI's status bar has a button that forgets what has already been
   synced and walks all history again. An incremental sync only looks *forward*, so a chat it
   once marked backfilled is never revisited: anything Telegram declined to hand over the first
