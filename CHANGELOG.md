@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/ilya-kudravets/telegram-grep/compare/v0.6.0...v0.7.0) (2026-09-03)
+
+
+### Features
+
+* choose which kinds of peer to search ([#40](https://github.com/ilya-kudravets/telegram-grep/issues/40)) ([b8baaaa](https://github.com/ilya-kudravets/telegram-grep/commit/b8baaaa67d917cd1bc17a1c2af6965be06472447))
+
 ## [0.6.0](https://github.com/ilya-kudravets/telegram-grep/compare/v0.5.0...v0.6.0) (2026-09-03)
 
 
