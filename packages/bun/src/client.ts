@@ -1,5 +1,6 @@
 import { networkMiddlewares, TelegramClient } from '@mtcute/bun'
 import { detectLangEnv, makeT } from '@tg/core/i18n'
+import { createPacingMiddleware } from '@tg/core/pacer'
 import type { SyncProgress } from '@tg/core/sync'
 import { resolveCreds, secureDataDir, secureFile } from './env'
 
@@ -34,14 +35,19 @@ export function createClient() {
     apiHash,
     storage: 'data/session',
     network: {
-      middlewares: networkMiddlewares.basic({
-        // default maxWait is 10s — real history dumps hit FLOOD_WAIT_20+ constantly
-        floodWaiter: {
-          maxWait: 600_000,
-          maxRetries: 10,
-          onBeforeWait: (_ctx, seconds) => floodListener(seconds), // default printed to console and broke the TUI
-        },
-      }),
+      middlewares: [
+        ...networkMiddlewares.basic({
+          // default maxWait is 10s — real history dumps hit FLOOD_WAIT_20+ constantly
+          floodWaiter: {
+            maxWait: 600_000,
+            maxRetries: 10,
+            onBeforeWait: (_ctx, seconds) => floodListener(seconds), // default printed to console and broke the TUI
+          },
+        }),
+        // last, so it is the innermost: it has to see the flood errors floodWaiter
+        // retries away, and from outside floodWaiter those are invisible
+        createPacingMiddleware(),
+      ],
     },
   })
   tg.log.mgr.level = 1 // errors only — anything louder corrupts the TUI

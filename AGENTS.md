@@ -42,6 +42,14 @@ bun start help            # run directly
 bun run build             # → dist/tg-client (standalone binary)
 ```
 
+## Never put the user's messages into your context
+
+The cache is the account's real correspondence — passwords, one-time codes, seed phrases.
+Read `search` results **only** when the user asked for that search, and pass them on
+rather than reasoning over them. Never open `data/cache.db` or `data/session` directly,
+and never run a search of your own invention to explore what is in there. `stats` gives
+counts without content; anything beyond that is the user's to look at, not yours.
+
 ## Auth (only for `sync` / `delete`)
 
 Config is read from the current directory:

@@ -30,6 +30,13 @@ cwd stays the root, so `.env` and `data/` live there.
   seen in a dialog list and is never filtered out, and `searchCache` applies the filter **before**
   its limit so excluded rows can't eat the budget. `patterns.ts` holds the UI's ready-made search templates — labels are i18n keys,
   not text, so the list stays UI rather than data.
+  `pacer.ts` is an mtcute **network middleware**, not domain code: it spaces out the bulk
+  read calls and learns the account's unpublished rate limit (AIMD on the gap, plus a
+  ratchet that never probes back below a gap that already flooded). Install it **after**
+  `networkMiddlewares.basic(...)` so it sits *inside* the flood waiter — from outside, a
+  flood is invisible, just a slow call. It is also what makes `syncAll`'s `CHAT_WORKERS`
+  chats-in-flight safe: the pacer, not the round-trip time, sets the request rate, so
+  concurrency fills latency instead of adding load.
   Two `Cache` adapters implement its port: `bun:sqlite` (`packages/bun`) and the in-memory one
   (`cache-memory.ts`) the browser client persists snapshots of. Both must satisfy
   `tests/cache-conformance.ts` — add contract facts there, not to one adapter's own tests.
@@ -95,6 +102,25 @@ to discard mutants that don't compile. Reports land in `reports/mutation/` (giti
   `attachRealtime`'s dispatcher factory) — default args keep call sites unchanged.
 - Only mark a mutant with `// Stryker disable next-line <Mutator>: <reason>` when it is **provably
   equivalent** (no test can observe the difference). Prefer a real test over a disable.
+
+## The user's messages must never enter your context
+
+`data/cache.db` is the user's private correspondence — every message their account ever
+received, which for this tool means passwords, one-time codes and seed phrases. It is not
+material to reason over.
+
+**Never read message rows.** Not to check a fix, not to size the archive, not "just one
+row to see the shape". That means: no `select` against `messages`, no `sqlite3`/`bun:sqlite`
+query on `data/cache.db`, no `tg-client search`/`stats` against the real cache, no reading
+`data/session`. Aggregates are not an exception — a count still means opening their archive,
+and the user has asked for it not to be touched at all.
+
+Work against fixtures instead: `:memory:` caches and the seeded rows in
+`packages/core/tests/*` and `apps/web/smoke/smoke.ts` are what tests and manual checks run
+on. `ls -l`/`stat` on the files is fine — that reads no content.
+
+If a question genuinely needs a number from the real cache, ask the user to run the query
+and paste what they choose to share.
 
 ## CI & releases
 

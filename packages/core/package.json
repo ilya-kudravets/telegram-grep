@@ -12,6 +12,7 @@
     "./search": "./src/search.ts",
     "./patterns": "./src/patterns.ts",
     "./sync": "./src/sync.ts",
+    "./pacer": "./src/pacer.ts",
     "./deleter": "./src/deleter.ts",
     "./i18n": "./src/i18n.ts"
   },

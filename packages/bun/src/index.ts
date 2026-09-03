@@ -5,6 +5,7 @@
 // portable sync/delete domain so app code has one import surface.
 
 export * from '@tg/core/deleter'
+export * from '@tg/core/pacer'
 export * from '@tg/core/patterns'
 export * from '@tg/core/sync'
 export * from './client'

@@ -113,6 +113,7 @@ export function floodWaitSeconds(e: unknown): number | null {
 
 const BATCH = 500
 const PAGE = 100 // getHistory max chunk
+const CHAT_WORKERS = 4 // see syncAll's worker pool
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 function cacheBatch(cache: Cache, msgs: MsgLike[]): number {
@@ -235,7 +236,8 @@ export async function syncAll(
     messages: 0,
     errors: [],
   }
-  for (const { peer, topId } of dialogs) {
+  let cursor = 0
+  const one = async ({ peer, topId }: { peer: PeerLike; topId: number }) => {
     // NB no upsertChat here: the enumeration loop above already recorded every peer it
     // pushed, title and kind both, and it runs before any message is inserted
     progress.chatTitle = peer.displayName
@@ -268,6 +270,22 @@ export async function syncAll(
     progress.chatsDone++
     onProgress?.(progress)
   }
+
+  // Chats in flight at once. A history page is a round trip — a few hundred milliseconds
+  // of pure waiting — and walking chats strictly one at a time spends most of a sync
+  // idle. Overlapping them fills that gap without raising the request rate, because the
+  // pacing middleware, not the round-trip time, is what decides the rate (see pacer.ts).
+  // Keep it small: the win is latency-hiding, and past a handful of workers there is no
+  // latency left to hide, only more ways to trip a flood.
+  // spawned unconditionally: a worker with no chat left to take just returns
+  const workers = Array.from({ length: CHAT_WORKERS }, async () => {
+    for (;;) {
+      const next = dialogs[cursor++]
+      if (!next) return // the array is only read here, and ++ is atomic between awaits
+      await one(next)
+    }
+  })
+  await Promise.all(workers)
   return progress
 }
 
