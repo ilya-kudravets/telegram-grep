@@ -51,6 +51,14 @@ export interface DataLayer {
   }>
   /** Pushes a status snapshot on subscribe and on every change; returns an unsubscribe. */
   subscribeStatus(onStatus: (s: Status) => void): () => void
+  /**
+   * Drops the sync bookkeeping and walks all history again. Needed because an
+   * incremental sync only ever looks *forward*: a chat it already marked backfilled is
+   * never revisited, so anything Telegram didn't hand over the first time (a peer that
+   * errored, a message that arrived while the tab was closed and the updates loop
+   * missed) stays invisible until something forgets the high-water mark.
+   */
+  resync(): Promise<void>
 }
 
 export function App({ data }: { data: DataLayer }) {
@@ -136,6 +144,11 @@ export function App({ data }: { data: DataLayer }) {
     })
   }
 
+  async function resync() {
+    await data.resync()
+    setNotice(t('resyncStarted'))
+  }
+
   async function del() {
     const targets = (marked.size ? rows.filter((r) => marked.has(keyOf(r))) : []).map((r) => ({
       chat_id: r.chat_id,
@@ -157,6 +170,11 @@ export function App({ data }: { data: DataLayer }) {
   }
 
   const sync = status?.sync
+  // A resync while one is already walking would just fight over the same cursors; the
+  // data layers refuse it too, this only keeps the button from lying about it. A failed
+  // walk counts as finished — otherwise the one button that could retry it stays dead,
+  // since a sync that dies before its first progress report never sets syncDone.
+  const syncing = !!sync && !status?.syncDone && !status?.error
   const syncLine = status?.error
     ? t('syncError', status.error)
     : status?.flood
@@ -227,6 +245,9 @@ export function App({ data }: { data: DataLayer }) {
           <progress value={sync.chatsDone} max={sync.chatsTotal || 1} />
         )}
         <span>{syncLine}</span>
+        <button type="button" disabled={syncing} onClick={resync} title={t('resyncHint')}>
+          {t('resyncBtn')}
+        </button>
         {searchError && <span className="err">{searchError}</span>}
         {notice && <span>{notice}</span>}
       </div>

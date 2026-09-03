@@ -31,6 +31,7 @@ export function openCache(path: string): Cache {
   const backfillStmt = db.prepare(SQL.backfillState)
   const setOldestStmt = db.prepare(SQL.setOldestId)
   const markBackfilledStmt = db.prepare(SQL.markBackfilled)
+  const resetSyncStateStmt = db.prepare(SQL.resetSyncState)
   const insertMsgStmt = db.prepare(SQL.insertMessage)
   const countStmt = db.prepare(SQL.count)
 
@@ -66,6 +67,9 @@ export function openCache(path: string): Cache {
     },
     markBackfilled(chatId: number) {
       markBackfilledStmt.run(chatId)
+    },
+    resetSyncState() {
+      resetSyncStateStmt.run()
     },
     insertMessages(msgs: CachedMessage[]) {
       // Stryker disable next-line ConditionalExpression: insertMany([]) is a no-op empty transaction; the guard only avoids that empty transaction, no observable difference

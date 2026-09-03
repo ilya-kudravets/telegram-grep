@@ -37,6 +37,10 @@ export function createServerData(): DataLayer {
       return (await res.json()) as { deleted: number; errors?: { error: string }[] }
     },
 
+    async resync() {
+      await apiFetch('/api/resync', { method: 'POST' })
+    },
+
     subscribeStatus(onStatus) {
       let ws: WebSocket | null = null
       let retry: ReturnType<typeof setTimeout> | undefined

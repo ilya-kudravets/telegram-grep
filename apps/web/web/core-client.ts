@@ -101,6 +101,33 @@ export async function createBrowserClient(creds: AppCreds, vault: Vault): Promis
     await store()
   }
 
+  let running = false
+  function doSync() {
+    if (running) return
+    running = true
+    status.syncDone = false
+    status.error = ''
+    syncAll(tg, cache, (p) => {
+      status.sync = { ...p }
+      // reuse the flood display without the server's onFlood hook — syncAll already
+      // reports the wait it is sleeping through
+      status.flood = p.floodWait ?? 0
+      persist()
+      publish()
+    })
+      .then(() => {
+        status.syncDone = true
+      })
+      .catch((e) => {
+        status.error = e instanceof Error ? e.message : String(e)
+      })
+      .finally(async () => {
+        running = false
+        await flush()
+        publish()
+      })
+  }
+
   // realtime updates + the updates loop, once an authorization exists
   async function attach() {
     attachRealtime(tg, cache, () => {
@@ -124,6 +151,13 @@ export async function createBrowserClient(creds: AppCreds, vault: Vault): Promis
         await flush()
         publish()
         return res
+      },
+
+      async resync() {
+        if (running) return // an in-flight walk owns the cursors we are about to clear
+        cache.resetSyncState()
+        await flush() // the cleared bookkeeping must outlive a reload, or a refresh resumes the old walk
+        doSync()
       },
 
       subscribeStatus(onStatus) {
@@ -169,27 +203,6 @@ export async function createBrowserClient(creds: AppCreds, vault: Vault): Promis
 
     seal: (plain) => vault.seal(plain),
 
-    sync() {
-      status.syncDone = false
-      status.error = ''
-      syncAll(tg, cache, (p) => {
-        status.sync = { ...p }
-        // reuse the flood display without the server's onFlood hook — syncAll already
-        // reports the wait it is sleeping through
-        status.flood = p.floodWait ?? 0
-        persist()
-        publish()
-      })
-        .then(() => {
-          status.syncDone = true
-        })
-        .catch((e) => {
-          status.error = e instanceof Error ? e.message : String(e)
-        })
-        .finally(async () => {
-          await flush()
-          publish()
-        })
-    },
+    sync: doSync,
   }
 }
