@@ -15,6 +15,10 @@ export interface ApiDeps {
   resync: () => void
 }
 
+// One request must not fan out into an unbounded loop of irreversible API calls: 1000
+// targets are at most 10 messages.deleteMessages calls (CHUNK=100 in the deleter).
+export const MAX_TARGETS = 1000
+
 // Bun.serve-compatible route handlers, separated from the server for testing
 export function makeApi(deps: ApiDeps) {
   return {
@@ -28,10 +32,22 @@ export function makeApi(deps: ApiDeps) {
     },
     '/api/delete': {
       POST: async (req: Request) => {
-        const body = (await req.json()) as { targets?: DeleteTarget[] }
-        const targets = (body.targets ?? []).filter(
+        // Deleting for everyone is irreversible, so anything we can't read as a target list
+        // is rejected outright — and a malformed body must not escape as a 500 (Bun's dev
+        // error page leaks the absolute cwd).
+        let raw: unknown
+        try {
+          raw = ((await req.json()) as { targets?: unknown } | null)?.targets
+        } catch {
+          return Response.json({ error: 'невалидный JSON' }, { status: 400 })
+        }
+        if (!Array.isArray(raw)) return Response.json({ error: 'targets пуст' }, { status: 400 })
+        if (raw.length > MAX_TARGETS)
+          return Response.json({ error: `максимум ${MAX_TARGETS} targets` }, { status: 400 })
+        const targets = raw.filter(
+          // safe integers, not merely finite: 1e308 and 0.5 are neither chat nor message ids
           // Stryker disable next-line OptionalChaining: t?.chat_id short-circuits first, so t is a non-null object by the time t?.id is read
-          (t) => Number.isFinite(t?.chat_id) && Number.isFinite(t?.id),
+          (t): t is DeleteTarget => Number.isSafeInteger(t?.chat_id) && Number.isSafeInteger(t?.id),
         )
         if (!targets.length) return Response.json({ error: 'targets пуст' }, { status: 400 })
         return Response.json(await deps.del(targets))

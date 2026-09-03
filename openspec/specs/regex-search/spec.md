@@ -29,6 +29,18 @@ Results MUST be ordered newest first, MUST carry the chat title, the sender and 
 - **WHEN** a very broad pattern is searched with the default limit
 - **THEN** at most that many rows are returned, and they are the newest matches
 
+### Requirement: Result text is written by other people
+
+Message text, sender names and chat titles all come from whoever messaged the user, so an interface MUST treat them as untrusted when rendering. A terminal interface MUST strip control characters from all three before they reach the screen, in one place rather than per field: a display name carrying an escape sequence can otherwise repaint the status line, which is where the delete confirmation is shown.
+
+#### Scenario: A peer whose name carries an escape sequence
+- **WHEN** a result's chat title, sender or text contains control characters
+- **THEN** they are removed before rendering, so the sequence cannot move the cursor, recolour output or forge a confirmation
+
+#### Scenario: The machine-readable interface
+- **WHEN** results are emitted as JSON for another program
+- **THEN** no stripping is needed, because the encoding already escapes such characters
+
 ### Requirement: Search scope by kind of peer
 
 The user MUST be able to choose which kinds of peer a search covers. The kinds MUST be few, and MUST be drawn along the lines that matter to someone looking for their own regrettable messages and for the secrets others sent them — not along the platform's internal type names. Every interface MUST offer the same choice.
@@ -56,6 +68,14 @@ A chat whose kind has never been established MUST always be searched. Withholdin
 #### Scenario: The same choice outside the browser
 - **WHEN** the command line is used
 - **THEN** the same scope can be set there, and leaving it unset searches everything
+
+### Requirement: Ready-made patterns cannot stall the search
+
+A search scans every cached row synchronously, so a template that backtracks super-linearly turns any planted text into a freeze of the browser tab or the server's event loop. Every built-in pattern MUST match its target shape in time linear in the text's length, on near-misses as well as matches.
+
+#### Scenario: Text planted to defeat a template
+- **WHEN** a cached message is shaped to make a built-in pattern almost match and then fail
+- **THEN** the scan stays fast, rather than costing time that grows with the square of the message's length
 
 ### Requirement: Search is repeatable and offline
 

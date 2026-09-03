@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 
 type Handler = (req: Request) => Response | Promise<Response>
@@ -16,6 +16,11 @@ export function loadOrCreateToken(path: string): string {
   writeFileSync(path, token, { mode: 0o600 })
   return token
 }
+
+// Compare digests, not the secrets: timingSafeEqual needs equal lengths (it throws
+// otherwise) and a fixed-size hash also keeps the token's length out of the timing.
+const sameSecret = (a: string, b: string) =>
+  timingSafeEqual(createHash('sha256').update(a).digest(), createHash('sha256').update(b).digest())
 
 const unauthorized = () => new Response('unauthorized', { status: 401 })
 const forbidden = () => new Response('forbidden', { status: 403 })
@@ -38,7 +43,7 @@ function checkOrigin(req: Request): Response | null {
 
 // Returns null when the request may proceed, or a rejecting Response.
 export function checkAuth(req: Request, token: string): Response | null {
-  if (req.headers.get('authorization') !== `Bearer ${token}`) return unauthorized()
+  if (!sameSecret(req.headers.get('authorization') ?? '', `Bearer ${token}`)) return unauthorized()
   return checkOrigin(req)
 }
 
@@ -46,7 +51,7 @@ export function checkAuth(req: Request, token: string): Response | null {
 // WebSocket API cannot set request headers, so Authorization is not available there.
 // Same token, same Origin check — only the transport differs.
 export function checkWsAuth(req: Request, token: string): Response | null {
-  if (new URL(req.url).searchParams.get('token') !== token) return unauthorized()
+  if (!sameSecret(new URL(req.url).searchParams.get('token') ?? '', token)) return unauthorized()
   return checkOrigin(req)
 }
 

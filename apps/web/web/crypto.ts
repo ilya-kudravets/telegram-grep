@@ -9,14 +9,26 @@
 //
 // One key for both records, because deriving twice buys nothing: the same passphrase
 // unlocks both, and 250k iterations is a noticeable fraction of a second on an old phone.
-// Each write gets a fresh IV — reusing one with the same key is what breaks GCM.
+// Each write gets a fresh IV — reusing one with the same key is what breaks GCM. What one
+// key does need is domain separation: each record names itself in GCM's additional data,
+// so anyone who can *write* IndexedDB (an extension, another local process) cannot copy
+// one record over the other's slot and have the reader open it.
 //
 // What this does NOT protect against: script running in the page while it is unlocked.
 // No browser client can, and the README says so plainly.
-const VERSION = 1
+const VERSION = 2 // v1 records carried no additional data, so nothing here can open them
 const ITERATIONS = 250_000
 const SALT_BYTES = 16
 const IV_BYTES = 12 // AES-GCM's nominal nonce size
+
+// The iteration count comes back out of storage, so it is attacker-controlled: a record
+// claiming billions of them makes the unlock never finish, with no way back for the user.
+// The window is wide enough to re-tune ITERATIONS later, narrow enough to stay quick.
+const MIN_ITERATIONS = 100_000
+const MAX_ITERATIONS = 1_000_000
+
+/** Which of the two records a blob is; bound into the ciphertext, not just stored beside it. */
+export type RecordKind = 'session' | 'snapshot'
 
 /** What gets stored. Structured-cloneable, so IndexedDB takes it as-is. */
 export interface SealedBlob {
@@ -31,9 +43,10 @@ export interface SealedBlob {
 
 /** The unlocked key, for as long as the page lives. */
 export interface Vault {
-  seal(plain: string): Promise<SealedBlob>
-  /** Null on a wrong key or a tampered record — GCM cannot tell those apart. */
-  open(sealed: SealedBlob): Promise<string | null>
+  seal(plain: string, kind: RecordKind): Promise<SealedBlob>
+  /** Null on a wrong key, a tampered record, or one written for the other `kind` — GCM
+   * cannot tell those apart, and the remedy is the same for all three. */
+  open(sealed: SealedBlob, kind: RecordKind): Promise<string | null>
 }
 
 async function deriveKey(passphrase: string, salt: Uint8Array<ArrayBuffer>, iterations: number) {
@@ -53,34 +66,42 @@ async function deriveKey(passphrase: string, salt: Uint8Array<ArrayBuffer>, iter
   )
 }
 
-// A record from a newer format must not masquerade as a wrong passphrase: that would send
-// the user to "erase and start over" over what is really an outdated bundle.
-function checkVersion(sealed: SealedBlob) {
+// A record this build cannot read must not masquerade as a wrong passphrase: that would
+// send the user to "erase and start over" over what is really a format mismatch. Same for
+// an iteration count outside the sane window — unopenable, and worth saying why.
+function checkRecord(sealed: SealedBlob) {
   if (sealed.version !== VERSION) {
     throw new Error(`unsupported record format v${sealed.version}, this build reads v${VERSION}`)
+  }
+  // written as a range test, so a missing or NaN count fails it too
+  if (!(sealed.iterations >= MIN_ITERATIONS && sealed.iterations <= MAX_ITERATIONS)) {
+    throw new Error(
+      `unsupported record: ${sealed.iterations} key iterations, outside ${MIN_ITERATIONS}-${MAX_ITERATIONS}`,
+    )
   }
 }
 
 function makeVault(key: CryptoKey, salt: Uint8Array<ArrayBuffer>, iterations: number): Vault {
+  const params = (iv: Uint8Array<ArrayBuffer>, kind: RecordKind) => ({
+    name: 'AES-GCM',
+    iv,
+    additionalData: new TextEncoder().encode(kind),
+  })
   return {
-    async seal(plain) {
+    async seal(plain, kind) {
       const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES))
       const ciphertext = await crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv },
+        params(iv, kind),
         key,
         new TextEncoder().encode(plain),
       )
       return { version: VERSION, iterations, salt, iv, ciphertext: new Uint8Array(ciphertext) }
     },
 
-    async open(sealed) {
-      checkVersion(sealed)
+    async open(sealed, kind) {
+      checkRecord(sealed)
       try {
-        const plain = await crypto.subtle.decrypt(
-          { name: 'AES-GCM', iv: sealed.iv },
-          key,
-          sealed.ciphertext,
-        )
+        const plain = await crypto.subtle.decrypt(params(sealed.iv, kind), key, sealed.ciphertext)
         return new TextDecoder().decode(plain)
       } catch {
         return null
@@ -103,11 +124,12 @@ export async function createVault(passphrase: string): Promise<Vault> {
  * record is wrong or corrupt, so the two are not worth distinguishing.
  */
 export async function unlockVault(passphrase: string, proof: SealedBlob): Promise<Vault | null> {
-  checkVersion(proof)
+  checkRecord(proof) // before deriveKey, or a bogus iteration count is what we'd be running
   const vault = makeVault(
     await deriveKey(passphrase, proof.salt, proof.iterations),
     proof.salt,
     proof.iterations,
   )
-  return (await vault.open(proof)) === null ? null : vault
+  // the proof is always the session record — nothing else is written before a login
+  return (await vault.open(proof, 'session')) === null ? null : vault
 }

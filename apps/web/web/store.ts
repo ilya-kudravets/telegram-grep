@@ -107,13 +107,15 @@ export async function clearSealedSession(): Promise<void> {
  * nothing can be unlocked.
  */
 export async function wipeAll(): Promise<void> {
-  localStorage.clear()
   await new Promise<void>((resolve, reject) => {
     const req = indexedDB.deleteDatabase(DB_NAME)
     req.onsuccess = () => resolve()
     req.onerror = () => reject(req.error)
-    // another tab holding a connection blocks the delete; the reload that follows
-    // an erase closes ours, and the delete completes then
-    req.onblocked = () => resolve()
+    // `run` closes its connection per request, so blocked can only mean another tab is
+    // holding one open — and that tab goes on writing snapshots. Reporting success there
+    // would tell the user the archive is gone while it is not.
+    req.onblocked = () =>
+      reject(new Error('another tab has this data open — close it and erase again'))
   })
+  localStorage.clear() // last: a failed wipe should not still have dropped the UI prefs
 }

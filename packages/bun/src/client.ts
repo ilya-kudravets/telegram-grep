@@ -1,8 +1,7 @@
-import { mkdirSync } from 'node:fs'
 import { networkMiddlewares, TelegramClient } from '@mtcute/bun'
 import { detectLangEnv, makeT } from '@tg/core/i18n'
 import type { SyncProgress } from '@tg/core/sync'
-import { resolveCreds } from './env'
+import { resolveCreds, secureDataDir, secureFile } from './env'
 
 export const lang = detectLangEnv()
 export const t = makeT(lang)
@@ -29,7 +28,7 @@ export function createClient() {
     console.error(t('needCreds'))
     process.exit(1)
   }
-  mkdirSync('data', { recursive: true })
+  secureDataDir() // before mtcute creates data/session, which it does on its own
   const tg = new TelegramClient({
     apiId,
     apiHash,
@@ -99,7 +98,7 @@ export async function login(tg: TelegramClient) {
       console.error(t('badSessionString'))
     }
   }
-  return tg.start({
+  const me = await tg.start({
     phone: () => askHidden(t('askPhone')),
     code: () => askHidden(t('askCode')),
     password: () => askHidden(t('askPassword')),
@@ -118,4 +117,13 @@ export async function login(tg: TelegramClient) {
     invalidCodeCallback: (what) =>
       console.error(what === 'code' ? t('codeRejected') : t('passwordRejected')),
   })
+  // Only now does data/session certainly exist — mtcute creates it during start(), so
+  // there is nowhere earlier to tighten it. secureDataDir() already made the directory
+  // unreadable to anyone else, so the brief 0644 window inside it is not reachable.
+  try {
+    secureFile('data/session')
+  } catch {
+    /* another storage driver, or a path we don't own — the 0700 directory still holds */
+  }
+  return me
 }

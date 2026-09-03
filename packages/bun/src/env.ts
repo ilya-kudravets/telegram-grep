@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, writeFileSync } from 'node:fs'
 import { unpackCreds } from '@tg/core/creds'
 import { parseKinds } from '@tg/core/search'
 
@@ -53,11 +53,44 @@ export const searchKinds = (env: Record<string, string | undefined> = process.en
 // check-then-write race between a separate existsSync() and writeFileSync().
 // creds is an injected seam: BAKED is captured at import, so a test cannot reach it
 // through process.env
+/**
+ * Creates `data/` owner-only, and tightens it if it already exists.
+ *
+ * `data/session` **is** the account: its `auth_keys` table grants full access with no
+ * phone, no code and no 2FA prompt, and revoking it needs the user to notice and
+ * terminate the session from Telegram. `data/cache.db` is every message ever synced —
+ * the passwords and seed phrases this tool exists to find. Neither is encrypted on the
+ * Bun side (unlike the browser client, which seals both under a passphrase), so the
+ * directory mode is the whole defence.
+ *
+ * Full-disk encryption does not substitute for it: FileVault covers a powered-off
+ * stolen laptop, not another local uid, not a backup daemon running as another user,
+ * and not a synced folder handing 32MB of private messages to a cloud provider. A
+ * default 0644 is readable by all three.
+ *
+ * The directory is the load-bearing part — 0700 stops anyone else traversing into it,
+ * whatever mode the files inside end up with, which matters because mtcute creates the
+ * session file itself and we never see it being born. `chmodSync` as well as
+ * `mkdirSync`'s mode because that mode is masked by umask and ignored outright for a
+ * directory that already exists.
+ */
+export function secureDataDir(dir = 'data'): void {
+  mkdirSync(dir, { recursive: true, mode: 0o700 })
+  chmodSync(dir, 0o700)
+}
+
+/** 0600 on a file we opened ourselves. Belt to `secureDataDir`'s braces. */
+export function secureFile(path: string): void {
+  chmodSync(path, 0o600)
+}
+
 export function ensureEnvFile(path = '.env', creds = resolveCreds()): boolean {
   // baked creds count too: a published binary must not nag for a .env it doesn't need
   if (creds.apiId && creds.apiHash) return false
   try {
-    writeFileSync(path, TEMPLATE, { flag: 'wx' })
+    // 0600: the template invites the user to put their api pair here, and the CLI's own
+    // docs have pointed at it for SESSION_STRING — either way it is credential material
+    writeFileSync(path, TEMPLATE, { flag: 'wx', mode: 0o600 })
     return true
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === 'EEXIST') return false

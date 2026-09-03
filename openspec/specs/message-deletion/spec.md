@@ -40,3 +40,19 @@ Every interface MUST confirm before deleting and MUST state how many messages ar
 #### Scenario: Confirming in any client
 - **WHEN** the user asks to delete a selection
 - **THEN** a confirmation naming the count is required, and cancelling leaves everything in place
+
+### Requirement: A delete request is validated before it reaches Telegram
+
+Because the act cannot be undone, the deletion endpoint MUST reject a request it cannot fully understand instead of acting on the part it can. A malformed body, a body that is not a list of targets, an identifier that is not a safe integer, and a list longer than the endpoint accepts MUST all be refused with a client error, and no request MUST be able to fail in a way that answers with the server's internals.
+
+#### Scenario: A body that is not a request
+- **WHEN** the endpoint receives a body that is not valid JSON, or is not a list of targets
+- **THEN** it answers with a client error naming the problem, and nothing is deleted
+
+#### Scenario: An identifier that is not a message id
+- **WHEN** a target carries a fractional or out-of-range number
+- **THEN** the request is refused rather than passed on to Telegram
+
+#### Scenario: More targets than one request may carry
+- **WHEN** a request names more targets than the endpoint's limit
+- **THEN** it is refused, so a single request cannot turn into an unbounded run of API calls

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { DeleteTarget, SearchRow } from '@tg/bun'
-import { makeApi } from '../src/api'
+import { MAX_TARGETS, makeApi } from '../src/api'
 
 const row: SearchRow = {
   chat_id: 1,
@@ -22,6 +22,11 @@ function api(overrides: Partial<Parameters<typeof makeApi>[0]> = {}) {
     ...overrides,
   })
 }
+
+const post = (body: unknown) =>
+  api()['/api/delete'].POST(
+    new Request('http://x/api/delete', { method: 'POST', body: JSON.stringify(body) }),
+  )
 
 describe('api', () => {
   test('POST /api/resync triggers a resync', async () => {
@@ -95,6 +100,40 @@ describe('api', () => {
     expect(res.status).toBe(200)
     expect(((await res.json()) as { deleted: number }).deleted).toBe(1)
     expect(got).toEqual([{ chat_id: 1, id: 2 }])
+  })
+
+  test('delete rejects ids that are not safe integers', async () => {
+    const res = await post({ targets: [{ chat_id: 1e308, id: 0.5 }] })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'targets пуст' })
+  })
+
+  // deleting for everyone is irreversible: a body we can't read must not reach deps.del,
+  // and must not escape the handler either (Bun's 500 page leaks the cwd)
+  test.each([
+    ['{oops', 'невалидный JSON'],
+    ['null', 'targets пуст'],
+    ['{"targets":{"0":{"chat_id":1,"id":2}}}', 'targets пуст'],
+  ])('delete on malformed body %p → 400', async (body, error) => {
+    const res = await api({
+      del: async () => {
+        throw new Error('must not be called')
+      },
+    })['/api/delete'].POST(new Request('http://x/api/delete', { method: 'POST', body }))
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error })
+  })
+
+  // one request must not fan out into an unbounded run of delete calls
+  test('delete caps the batch at MAX_TARGETS', async () => {
+    const batch = (n: number) =>
+      post({ targets: Array.from({ length: n }, (_, i) => ({ chat_id: 1, id: i })) })
+    const ok = await batch(MAX_TARGETS)
+    expect(ok.status).toBe(200)
+    expect(((await ok.json()) as { deleted: number }).deleted).toBe(MAX_TARGETS)
+    const tooMany = await batch(MAX_TARGETS + 1)
+    expect(tooMany.status).toBe(400)
+    expect(await tooMany.json()).toEqual({ error: `максимум ${MAX_TARGETS} targets` })
   })
 
   test('delete with no valid targets → 400', async () => {

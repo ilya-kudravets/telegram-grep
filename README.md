@@ -172,6 +172,23 @@ GitHub Actions (`.github/workflows/`, deps cached across runs):
 - **dependabot.yml** — weekly PRs bumping dependencies (npm/`bun.lock`) and the actions themselves.
 - **release.yml** — see below.
 
+### What is (and is not) protected on disk
+
+`data/` is created **owner-only** (`0700`), and `data/session`, `data/cache.db` and a
+generated `.env` are `0600`. That is the whole defence, because on the Bun side **nothing
+is encrypted at rest**:
+
+- `data/session` *is* the account — its auth key grants full access with no phone, no code
+  and no 2FA prompt. Losing it means terminating the session from Telegram.
+- `data/cache.db` is every message ever synced, which for this tool means the passwords
+  and seed phrases it exists to find.
+
+Full-disk encryption does not cover this: FileVault protects a powered-off stolen laptop,
+not another account on the same machine, a backup agent running as a different user, or a
+synced folder uploading the archive to a cloud provider. If you need encryption at rest,
+use the [static browser client](#static-browser-client-github-pages) — it seals both the
+session and the cache under a passphrase.
+
 ## Releases
 
 Driven by [release-please](https://github.com/googleapis/release-please): commit with
@@ -192,7 +209,8 @@ The UI follows the system language (ru/en); translations live in `packages/core/
 
 - `bun run web` — the same client with a browser UI. By default it listens on **`127.0.0.1` only**.
 - To access from a phone: `LAN=1 bun run web` (listens on `0.0.0.0`). The console prints a URL with a token.
-- `/api/*` is token-protected (`Authorization: Bearer`, stored in `data/web-token`). Open the printed `…/?token=…` URL once — the token is saved in the browser, after which you can install it as a PWA (Safari → "Add to Home Screen") with the plain address. Origin is also checked, so third-party sites can't call the API (CSRF).
+- `/api/*` is token-protected (`Authorization: Bearer`, stored in `data/web-token`). Open the printed `…/?token=…` URL once — the token is saved in the browser, after which you can install it as a PWA (Safari → "Add to Home Screen") with the plain address. The token is what keeps a third-party page out: it can't be read from our origin. `Origin` is checked too **when the request carries one**, which is defence in depth rather than the barrier — it matters most for WebSockets, which CORS does not cover at all.
+- `LAN=1` serves plain **HTTP**: the token and every message crossing the wire are readable to anyone on the network. Use it on a network you trust, not a café's.
 - The TUI (`bun start`) and web (`bun run web`) share one Telegram session — run only one at a time.
 - Auth persists to `data/session` after first login — no need to log in again on restart.
 - For a one-off headless login (no `data/session` yet, no TTY), pass a session string exported from mtcute as a real env var: `SESSION_STRING=... bun start`. An invalid/stale value is ignored (with a warning) rather than needed on every run, so there's no reason to keep it in `.env` once you're logged in.
