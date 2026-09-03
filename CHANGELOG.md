@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.3](https://github.com/ilya-kudravets/telegram-grep/compare/v0.8.2...v0.8.3) (2026-09-03)
+
+
+### Bug Fixes
+
+* **sync:** stop pre-emptive pacing, which was slower than none ([#52](https://github.com/ilya-kudravets/telegram-grep/issues/52)) ([1ac3c31](https://github.com/ilya-kudravets/telegram-grep/commit/1ac3c316ec8413012ecc038461b793d36098f072))
+
 ## [0.8.2](https://github.com/ilya-kudravets/telegram-grep/compare/v0.8.1...v0.8.2) (2026-09-03)
 
 
