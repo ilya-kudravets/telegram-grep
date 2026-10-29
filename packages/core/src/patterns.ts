@@ -23,6 +23,9 @@ export interface PatternTemplate {
 
 const CYR = '(?<![а-яё])'
 const CYR_END = '(?![а-яё])'
+// each octet 0–255 with its own boundary, so "256.1.1.1" can't pass as "56.1.1.1"
+const OCTET = '(25[0-5]|2[0-4]\\d|1?\\d?\\d)'
+const IPV4 = `${OCTET}(\\.${OCTET}){3}`
 
 // ponytail: deliberately loose. These are search prompts a human then reads through, not
 // a DLP classifier — a false positive costs a glance, a miss costs the whole point.
@@ -64,7 +67,9 @@ export const DEFAULT_PATTERNS: PatternTemplate[] = [
   },
   {
     label: 'tplBank',
-    pattern: `/\\b[A-Z]{2}\\d{2}[A-Z0-9]{11,30}\\b|\\biban\\b|\\bswift\\b|routing number|sort code|account number|${CYR}(реквизит|расч[её]тн|корр?\\.? ?сч[её]т|р\\/с|к\\/с|бик${CYR_END}|огрн|номер сч[её]та)/i`,
+    // "swift"/"sort code" need the code word or digits after them: "rewrote it in Swift"
+    // and "please provide the sort code" are not bank details
+    pattern: `/\\b[A-Z]{2}\\d{2}[A-Z0-9]{11,30}\\b|\\biban\\b|\\bswift[ /-]?(code|bic)\\b|\\bbic ?code\\b|routing number|sort code\\W{0,3}\\d{2}|account number|${CYR}(реквизит|расч[её]тн|корр?\\.? ?сч[её]т|р\\/с|к\\/с|бик${CYR_END}|огрн|номер сч[её]та)/i`,
   },
   {
     // BTC (legacy + bech32), ETH/EVM, TRON, TON, Litecoin
@@ -91,21 +96,27 @@ export const DEFAULT_PATTERNS: PatternTemplate[] = [
     pattern: `/${CYR}(ул\\.|улиц[аеы]|дом \\d|кв\\.|квартир[аеы]|подъезд|прописк|индекс \\d{5,6})|\\b(zip ?code|postcode|street|apartment|apt\\.? ?\\d)|(?<!ip |e-?mail |mac |wallet )(${CYR}адрес(?![а-яё]{2})|\\baddress\\b)/i`,
   },
   {
-    // lat,lon pairs and map links — where you were, or where you live
+    // lat,lon pairs and map links — where you were, or where you live. Latitude is bounded
+    // to ±90 and longitude to ±180, so an exchange rate "92.4512, 100.3456" is not a place;
+    // the lookbehind rather than `\b` keeps the minus sign inside the match
     label: 'tplLocation',
     pattern:
-      '/\\b-?\\d{1,2}\\.\\d{4,},\\s*-?\\d{1,3}\\.\\d{4,}\\b|maps\\.app\\.goo\\.gl|google\\.\\w+\\/maps|yandex\\.\\w+\\/maps|2gis\\.\\w+\\/|geo:\\d|плюс[- ]?код|plus ?code/i',
+      '/(?<![\\w.-])-?([0-8]?\\d|90)\\.\\d{4,8},\\s*-?(1[0-7]\\d|180|\\d?\\d)\\.\\d{4,8}\\b|maps\\.app\\.goo\\.gl|google\\.\\w+\\/maps|maps\\.google\\.|yandex\\.\\w+\\/maps|maps\\.yandex\\.|maps\\.apple\\.com|2gis\\.\\w+\\/|geo:\\d|плюс[- ]?код|plus ?code/i',
   },
   // — everything else that can be revoked —
   {
-    // invite links: anyone holding the message can still join
+    // invite links: anyone holding the message can still join. t.me and telegram.me are
+    // one host, tg://join the deep-link form; the lookbehind keeps "chat.me/+x" out
     label: 'tplInvites',
     pattern:
-      '/t\\.me\\/(\\+|joinchat\\/)|discord\\.gg\\/|chat\\.whatsapp\\.com\\/|zoom\\.us\\/j\\/|meet\\.google\\.com\\/[a-z-]+|signal\\.group\\//i',
+      '/(?<![\\w.-])(t|telegram)\\.me\\/(\\+|joinchat\\/)|tg:\\/\\/join\\?invite=|discord\\.gg\\/|chat\\.whatsapp\\.com\\/|zoom\\.us\\/j\\/|meet\\.google\\.com\\/[a-z-]+|signal\\.group\\//i',
   },
   {
-    // servers and hosts: IPv4 (with optional port), ssh targets, root@
+    // servers and hosts: ssh targets, root@, and IPv4 — but a dotted quad alone is as
+    // likely a version ("17.4.1.123"), so it counts only beside a scheme, a port or a
+    // host/server/ip word. Only real `-flag [value]` tokens may sit between ssh and the
+    // target, so "ssh into the box and email me@x.com" is not one
     label: 'tplInfra',
-    pattern: '/\\b(?:\\d{1,3}\\.){3}\\d{1,3}(:\\d{2,5})?\\b|\\bssh\\s+(-\\w+\\s+)*\\w+@|\\broot@/i',
+    pattern: `/\\bssh\\s+(-\\w+(\\s+[^\\s@-]\\S*)?\\s+){0,6}[^\\s@]+@|\\broot@|\\b[a-z]+:\\/\\/${IPV4}\\b|\\b${IPV4}:\\d{2,5}\\b|(\\b(hostname|servers?|host|ip)\\b|${CYR}(сервер|хост|айпи))[^\\n]{0,20}?\\b${IPV4}\\b/i`,
   },
 ]
