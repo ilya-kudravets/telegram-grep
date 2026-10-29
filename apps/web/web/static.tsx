@@ -13,6 +13,7 @@
 import { makeT } from '@tg/core/i18n'
 import { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { renderSVG } from 'uqr'
 import { App, initialLangPref, resolveLang } from './app'
 import { bakedCreds } from './baked'
 import { type BrowserClient, createBrowserClient } from './core-client'
@@ -48,6 +49,7 @@ function Gate() {
   const [connected, setConnected] = useState('')
   const [ask, setAsk] = useState<Ask | null>(null)
   const [notice, setNotice] = useState('') // where the code went, or why it was rejected
+  const [qrUrl, setQrUrl] = useState('') // the login QR as a data: URL, while waiting for a scan
   const [ownCreds, setOwnCreds] = useState(false) // user-supplied pair, not the baked one
   const creds = useRef<AppCreds | undefined>(undefined)
   const client = useRef<BrowserClient | null>(null)
@@ -135,32 +137,42 @@ function Gate() {
 
   // Runs the whole interactive login: mtcute calls back for phone/code/password, each
   // callback parks on a promise the form below resolves. The session it returns is sealed
-  // with the vault the passphrase already created.
-  const startLogin = guard(async () => {
-    const prompt = (label: string, secret = false) =>
-      new Promise<string>((resolve) => setAsk({ label, secret, resolve }))
-    setNotice('')
-    try {
-      const { user, session } = await client.current!.login({
-        phone: () => prompt(t('askPhone')),
-        code: () => prompt(t('askCode')),
-        password: () => prompt(t('askPassword'), true),
-        codeSent: ({ via, nextVia, retryInSeconds }) =>
-          setNotice(
-            `${via === 'app' ? t('codeSentApp') : t('codeSentVia', via)} ${
-              nextVia === 'none' ? t('codeNoResend') : t('codeResendIn', nextVia, retryInSeconds)
-            }`,
-          ),
-        rejected: (what) => setNotice(what === 'code' ? t('codeRejected') : t('passwordRejected')),
-      })
-      await saveSealedSession(await client.current!.seal(session))
-      setConnected(user)
-      setPhase('ready')
-      client.current!.sync()
-    } finally {
-      setAsk(null) // a failed login must not leave a dead prompt on screen
-    }
-  })
+  // with the vault the passphrase already created. `byQr` swaps phone+code for a QR the
+  // phone scans; a 2FA password, if any, is still asked through the same prompt.
+  const login = (byQr: boolean) =>
+    guard(async () => {
+      const prompt = (label: string, secret = false) => {
+        setQrUrl('') // scanned: the password prompt replaces the QR
+        return new Promise<string>((resolve) => setAsk({ label, secret, resolve }))
+      }
+      setNotice('')
+      try {
+        const { user, session } = await client.current!.login({
+          qr: byQr
+            ? (url) => setQrUrl(`data:image/svg+xml,${encodeURIComponent(renderSVG(url))}`)
+            : undefined,
+          phone: () => prompt(t('askPhone')),
+          code: () => prompt(t('askCode')),
+          password: () => prompt(t('askPassword'), true),
+          codeSent: ({ via, nextVia, retryInSeconds }) =>
+            setNotice(
+              `${via === 'app' ? t('codeSentApp') : t('codeSentVia', via)} ${
+                nextVia === 'none' ? t('codeNoResend') : t('codeResendIn', nextVia, retryInSeconds)
+              }`,
+            ),
+          rejected: (what) =>
+            setNotice(what === 'code' ? t('codeRejected') : t('passwordRejected')),
+        })
+        await saveSealedSession(await client.current!.seal(session))
+        setConnected(user)
+        setPhase('ready')
+        client.current!.sync()
+      } finally {
+        setAsk(null) // a failed login must not leave a dead prompt on screen
+        setQrUrl('')
+      }
+    })
+  const startLogin = login(false)
 
   // Revokes the session on Telegram's side first: if that call fails the local data stays
   // put, so the user can retry instead of ending up logged in everywhere but here.
@@ -294,11 +306,20 @@ function Gate() {
             <input name="answer" type={ask.secret ? 'password' : 'text'} autoFocus required />
             <button type="submit">{t('loginBtn')}</button>
           </form>
+        ) : qrUrl ? (
+          <div>
+            <h2>{t('qrTitle')}</h2>
+            <p>{t('qrHint')}</p>
+            <img className="qr" src={qrUrl} alt={t('qrTitle')} />
+          </div>
         ) : (
           <form onSubmit={startLogin}>
             <h2>{t('loginTitle')}</h2>
             <button type="submit" disabled={busy}>
               {busy ? t('working') : t('loginStart')}
+            </button>
+            <button type="button" className="link" onClick={login(true)} disabled={busy}>
+              {t('loginQr')}
             </button>
           </form>
         ))}

@@ -103,6 +103,10 @@ export const ru: Partial<Dict> = {
   passphraseTooShort: 'минимум {0} символов',
   loginTitle: 'Вход в Telegram',
   loginStart: 'Начать',
+  loginQr: 'Войти по QR-коду',
+  qrTitle: 'Отсканируйте в Telegram',
+  qrHint:
+    'На телефоне: Настройки → Устройства → Подключить устройство. Код не нужен, QR обновляется сам.',
   loginBtn: 'Продолжить',
   loginFailed: 'вход не удался: {0}',
   connectedAs: 'вы вошли как {0}',
