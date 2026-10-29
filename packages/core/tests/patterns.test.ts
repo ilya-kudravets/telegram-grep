@@ -58,6 +58,16 @@ test.each([
   ['tplInvites', 'https://discord.gg/xyz'],
   ['tplInfra', 'ssh root@192.168.1.10'],
   ['tplInfra', 'сервер 10.0.0.5:8080'],
+  ['tplInfra', 'ip сервера 95.142.10.1'],
+  ['tplInfra', 'host: 10.0.0.5'],
+  ['tplInfra', 'админка http://192.168.0.1/'],
+  ['tplInfra', 'ssh -p 2222 deploy@example.com'],
+  ['tplBank', 'SWIFT code DEUTDEFF'],
+  ['tplBank', 'sort code: 12-34-56'],
+  ['tplLocation', 'Sydney -33.8688, 151.2093'],
+  ['tplLocation', 'https://maps.apple.com/?ll=1,2'],
+  ['tplInvites', 'https://telegram.me/joinchat/AbCdEf'],
+  ['tplInvites', 'tg://join?invite=AbCdEf'],
 ])('%s matches "%s"', (label, text) => {
   expect(tpl(label).test(text)).toBe(true)
 })
@@ -76,6 +86,13 @@ test.each([
   ['tplAddress', 'надо адресовать вопрос'],
   ['tplEmails', 'сегодня в 10@ или a@b, без домена'],
   ['tplEmails', 'me@localhost'],
+  ['tplInfra', 'обновился до 17.4.1.123'],
+  ['tplInfra', 'ip 256.1.1.1'],
+  ['tplInfra', 'ssh into the box and email me@x.com'],
+  ['tplBank', 'I rewrote it in Swift'],
+  ['tplBank', 'please provide the sort code'],
+  ['tplLocation', 'курс 92.4512, 100.3456'],
+  ['tplInvites', 'chat.me/+x'],
 ])('%s stays quiet on "%s"', (label, text) => {
   expect(tpl(label).test(text)).toBe(false)
 })
