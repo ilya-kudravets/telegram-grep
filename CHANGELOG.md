@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.9.0](https://github.com/ilya-kudravets/telegram-grep/compare/v0.8.3...v0.9.0) (2026-10-29)
+
+
+### Features
+
+* **web:** log in by QR code on the static client ([#57](https://github.com/ilya-kudravets/telegram-grep/issues/57)) ([0fc24ec](https://github.com/ilya-kudravets/telegram-grep/commit/0fc24ec77ea83bdc96e5eb4938ef7ee90d86af96))
+
+
+### Bug Fixes
+
+* **deps:** bump mtcute to 0.32.7 ([#54](https://github.com/ilya-kudravets/telegram-grep/issues/54)) ([2ee1d6d](https://github.com/ilya-kudravets/telegram-grep/commit/2ee1d6d369decabdca6fc11ed7b292dc61af8c18))
+* **patterns:** tighten infra, bank, location and invite templates ([#55](https://github.com/ilya-kudravets/telegram-grep/issues/55)) ([a49dd4a](https://github.com/ilya-kudravets/telegram-grep/commit/a49dd4a0f8b793c493c3508c507541d991f44437))
+
 ## [0.8.3](https://github.com/ilya-kudravets/telegram-grep/compare/v0.8.2...v0.8.3) (2026-09-03)
 
 
