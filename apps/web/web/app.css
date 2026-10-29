@@ -405,3 +405,10 @@ button.link.danger {
 .gatebar .err {
   color: var(--red);
 }
+.gate .qr {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  margin: 8px auto;
+  border-radius: 12px;
+}

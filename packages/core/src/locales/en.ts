@@ -110,6 +110,10 @@ export const en = {
   passphraseTooShort: 'at least {0} characters',
   loginTitle: 'Log in to Telegram',
   loginStart: 'Start',
+  loginQr: 'Log in with a QR code instead',
+  qrTitle: 'Scan with Telegram',
+  qrHint:
+    'On your phone: Settings → Devices → Link Desktop Device. No code is sent; the QR refreshes by itself.',
   loginBtn: 'Continue',
   loginFailed: 'login failed: {0}',
   connectedAs: 'connected as {0}',

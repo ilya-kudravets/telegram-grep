@@ -34,6 +34,12 @@ export interface LoginPrompts {
   /** What was just entered got rejected and mtcute is asking again — say so, or the form
    * silently reappearing looks like nothing happened. */
   rejected?(what: 'code' | 'password'): void
+  /**
+   * Set → log in by QR instead of phone+code: called with each fresh `tg://login` URL
+   * (Telegram rotates it every ~30s) to draw for the phone to scan. No code is sent at
+   * all, so this is the way in when one never arrives. `phone`/`code` go unused.
+   */
+  qr?(url: string): void
 }
 
 export interface BrowserClient {
@@ -214,18 +220,27 @@ export async function createBrowserClient(creds: AppCreds, vault: Vault): Promis
     },
 
     async login(prompts) {
-      const me = await tg.start({
-        phone: () => prompts.phone(),
-        code: () => prompts.code(),
+      const common = {
         password: () => prompts.password(),
-        codeSentCallback: (sent) =>
-          prompts.codeSent?.({
-            via: sent.type,
-            nextVia: sent.nextType,
-            retryInSeconds: sent.timeout,
-          }),
-        invalidCodeCallback: (what) => prompts.rejected?.(what),
-      })
+        invalidCodeCallback: (what: 'code' | 'password') => prompts.rejected?.(what),
+      }
+      const { qr } = prompts
+      // start() takes the QR path only when qrCodeHandler is set — it then ignores phone
+      const me = await tg.start(
+        qr
+          ? { ...common, qrCodeHandler: (url) => qr(url) }
+          : {
+              ...common,
+              phone: () => prompts.phone(),
+              code: () => prompts.code(),
+              codeSentCallback: (sent) =>
+                prompts.codeSent?.({
+                  via: sent.type,
+                  nextVia: sent.nextType,
+                  retryInSeconds: sent.timeout,
+                }),
+            },
+      )
       await attach()
       return { user: me.displayName, session: await tg.exportSession() }
     },
