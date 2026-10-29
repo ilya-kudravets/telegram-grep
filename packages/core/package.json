@@ -17,7 +17,7 @@
     "./i18n": "./src/i18n.ts"
   },
   "dependencies": {
-    "@mtcute/core": "^0.32.1",
-    "@mtcute/dispatcher": "^0.32.1"
+    "@mtcute/core": "^0.32.7",
+    "@mtcute/dispatcher": "^0.32.7"
   }
 }
